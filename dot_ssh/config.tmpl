@@ -1,0 +1,96 @@
+# This only works if it's at the top of ssh_config (before any Host blocks).
+# This won't be added again if you remove it.
+Include ~/.orbstack/ssh/config
+
+# VPS 中继主机
+Host JD-server-tunnel
+    HostName 117.72.201.198
+    User tunnel
+    Port 22022
+    # IdentityFile ~/.ssh/id_ed25519   # 如果用了特定密钥可加这行
+
+
+Host JD-server
+    HostName 117.72.201.198
+    User root
+    Port 22022
+    IdentityFile ~/.ssh/id_ed25519   # 如果用了特定密钥可加这行
+
+Host lab
+    HostName 121.48.163.69
+    Port 45623
+    User root
+
+Host lab-kipley
+    HostName 121.48.163.69
+    Port 45623
+    User kipley
+
+
+Host tecent-server
+    HostName 162.14.77.140
+    User ubuntu
+    Port 22
+    IdentityFile ~/.ssh/id_ed25519   # 如果用了特定密钥可加这行
+    ServerAliveInterval 60
+    ServerAliveCountMax 3
+
+# 游戏本（通过 VPS 中继）
+Host gamepc
+    HostName 162.14.77.140  # 腾讯云服务器公网IP
+    User kipley             # 游戏本Ubuntu用户名
+    Port 6022               # FRP转发端口
+    ServerAliveInterval 60
+    ServerAliveCountMax 3
+
+Host tecent-lab-server
+  HostName 162.14.77.140
+  User root
+  Port 6023
+  ServerAliveInterval 60
+  ServerAliveCountMax 3
+
+Host tecent-lab-server-kipley
+  HostName 162.14.77.140
+  User kipley        # 这里！把 root 改成 kipley
+  Port 6023
+  ServerAliveInterval 60
+  ServerAliveCountMax 3
+
+
+Host vultr-server
+    HostName 66.42.63.252
+    User linuxuser
+    IdentityFile ~/.ssh/id_ed25519
+    ServerAliveInterval 60
+    ServerAliveCountMax 3
+
+# 实验室服务器
+Host lab-server          # 别名，可自定义
+    HostName 121.48.163.69
+    Port 45618
+    User root
+    IdentityFile ~/.ssh/id_ed25519
+    ServerAliveInterval 60
+    ServerAliveCountMax 3
+
+Host lab-server-kipley          # 别名，可自定义
+    HostName 121.48.163.69
+    Port 45618
+    User kipley
+    IdentityFile ~/.ssh/id_ed25519
+
+Host ipraft-server
+    HostName 82.21.80.252
+    User root
+    Port 30022
+    PreferredAuthentications publickey
+    IdentityFile ~/.ssh/id_ed25519
+
+Host bestvm-server
+    HostName 147.79.59.147
+    User root
+    # 绕过 MTU 黑洞的终极武器
+    KexAlgorithms curve25519-sha256@libssh.org
+    IPQoS none
+    Port 22
