@@ -71,9 +71,6 @@ export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
 export HOMEBREW_BOTTLE_DOMAIN=https://mirrors.ustc.edu.cn/homebrew-bottles
 
-# 将原先的长命令缩写为 cc
-alias cc="bash ~/.claude/cc.sh"
-
 # chezmoi 跨平台一键无脑同步函数（完美兼容 Mac & Linux）
 czsync() {
     # 1. 跨平台安全时间戳（避开 BSD/GNU date 差异）
@@ -107,4 +104,3 @@ czsync() {
 # 绑定极客快捷别名
 alias csz="czsync"
 
-[ -f ~/.bashrc ] && source ~/.bashrc
