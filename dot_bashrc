@@ -189,3 +189,38 @@ eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv bash)"
 export PATH="$HOME/bin:$PATH"
 
 alias cc="bash ~/.claude/cc.sh"
+
+# chezmoi 跨平台一键无脑同步函数
+czsync() {
+    local current_time
+    current_time=$(date "+%Y-%m-%d_%H:%M:%S")
+
+    echo "🚀 [Chezmoi] 正在识别原位修改并自动更新..."
+    
+    # 核心修正：显式指定你要自动更新的受管基础配置文件
+    # 这样不管你在 Mac 还是 Linux，它们只要变了就会被自动 add 进来
+    if [ -f "$HOME/.zshrc" ]; then chezmoi add "$HOME/.zshrc"; fi
+    if [ -f "$HOME/.bashrc" ]; then chezmoi add "$HOME/.bashrc"; fi
+    
+    # 兜底：让 chezmoi 自动去扫其他已被管理但有变动的文件
+    chezmoi add --auto-bool=false 2>/dev/null || true
+    
+    # 检查 chezmoi 内部源码仓库是否有文件变更
+    if [ -n "$(chezmoi git -- status --porcelain)" ]; then
+        echo "📝 [Chezmoi] 检测到配置变更，正在自动提交..."
+        
+        chezmoi git -- add .
+        chezmoi git -- commit -m "auto sync: ${current_time}"
+        
+        echo "📤 [Chezmoi] 正在推送到远端 GitHub 仓库..."
+        if chezmoi git -- push; then
+            echo "✅ [Chezmoi] 跨平台同步成功！"
+        else
+            echo "❌ [Chezmoi] 推送失败，请检查网络或 SSH Key。"
+        fi
+    else
+        echo "✨ [Chezmoi] 没有检测到任何文件修改，无需同步。"
+    fi
+}
+
+alias csz="czsync"

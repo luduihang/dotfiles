@@ -1,0 +1,110 @@
+export PATH="/opt/homebrew/bin:$PATH"
+
+# >>> conda initialize >>>
+# !! Contents within this block are managed by 'conda init' !!
+__conda_setup="$('/opt/anaconda3/bin/conda' 'shell.zsh' 'hook' 2> /dev/null)"
+if [ $? -eq 0 ]; then
+    eval "$__conda_setup"
+else
+    if [ -f "/opt/anaconda3/etc/profile.d/conda.sh" ]; then
+        . "/opt/anaconda3/etc/profile.d/conda.sh"
+    else
+        export PATH="/opt/anaconda3/bin:$PATH"
+    fi
+fi
+unset __conda_setup
+# <<< conda initialize <<<
+# 代理开关控制
+function proxy_on() {
+    export http_proxy="http://127.0.0.1:7897"
+    export https_proxy="http://127.0.0.1:7897"
+    export all_proxy="socks5://127.0.0.1:7897"
+    echo -e "\033[32m代理已开启 (Port: 7897)\033[0m"
+    # 验证一下
+    curl -I https://www.google.com
+}
+
+function proxy_off() {
+    unset http_proxy
+    unset https_proxy
+    unset all_proxy
+    echo -e "\033[31m代理已关闭\033[0m"
+}
+# The following lines have been added by Docker Desktop to enable Docker CLI completions.
+fpath=(/Users/kipley/.docker/completions $fpath)
+autoload -Uz compinit
+compinit
+# End of Docker CLI completions
+
+# pnpm
+export PNPM_HOME="/Users/kipley/Library/pnpm"
+case ":$PATH:" in
+  *":$PNPM_HOME:"*) ;;
+  *) export PATH="$PNPM_HOME:$PATH" ;;
+esac
+
+# opencode
+export PATH=/Users/kipley/.opencode/bin:$PATH
+export PATH="/opt/homebrew/opt/node@22/bin:$PATH"
+
+#THIS MUST BE AT THE END OF THE FILE FOR SDKMAN TO WORK!!!
+export SDKMAN_DIR="$HOME/.sdkman"
+[[ -s "$HOME/.sdkman/bin/sdkman-init.sh" ]] && source "$HOME/.sdkman/bin/sdkman-init.sh"
+
+
+# 先定义服务器基础 IP
+export TENCENT_SERVER_IP="100.110.148.90"
+
+# 让数据库地址“跟随”服务器地址
+export MONGO_HOST=$TENCENT_SERVER_IP
+
+# OpenClaw Completion
+source "/Users/kipley/.openclaw/completions/openclaw.zsh"
+
+# rclone mount helpers for tecent-server
+export PATH="$HOME/bin:$PATH"
+alias mount-tx='tecent-server-mount mount'
+alias umount-tx='tecent-server-mount unmount'
+
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
+[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
+export HOMEBREW_BOTTLE_DOMAIN=https://mirrors.ustc.edu.cn/homebrew-bottles
+
+# 将原先的长命令缩写为 cc
+alias cc="bash ~/.claude/cc.sh"
+
+# chezmoi 跨平台一键无脑同步函数（完美兼容 Mac & Linux）
+czsync() {
+    # 1. 跨平台安全时间戳（避开 BSD/GNU date 差异）
+    local current_time
+    current_time=$(date "+%Y-%m-%d_%H:%M:%S")
+
+    echo "🚀 [Chezmoi] 正在识别原位修改，自动 smart add..."
+    # --smart 会自动识别被修改的受管文件，跳过未管理文件
+    chezmoi add --smart
+    
+    # 2. 检查 chezmoi 内部是否有文件变更（暂存区或工作区）
+    # 使用 git status --porcelain 是目前最快、最不依赖终端终端高亮的判断方式
+    if [ -n "$(chezmoi git -- status --porcelain)" ]; then
+        echo "📝 [Chezmoi] 检测到配置变更，正在自动提交..."
+        
+        # 顺畅执行 git 流水线，age 会在后台静默处理加密文件
+        chezmoi git -- add .
+        chezmoi git -- commit -m "auto sync: ${current_time}"
+        
+        echo "📤 [Chezmoi] 正在推送到远端 GitHub 仓库..."
+        if chezmoi git -- push; then
+            echo "✅ [Chezmoi] 跨平台同步成功！"
+        else
+            echo "❌ [Chezmoi] 推送失败，请检查网络或 SSH Key。"
+        fi
+    else
+        echo "✨ [Chezmoi] 没有检测到任何文件修改，无需同步。"
+    fi
+}
+
+# 绑定极客快捷别名
+alias csz="czsync"
+
+[ -f ~/.bashrc ] && source ~/.bashrc
