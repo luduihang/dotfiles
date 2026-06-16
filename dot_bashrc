@@ -184,7 +184,7 @@ unset _conda_root _conda_paths
 export PATH="$PATH:/home/kipley/.lmstudio/bin"
 [ -x /home/linuxbrew/.linuxbrew/bin/brew ] && eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv bash)"
 
-export PATH="$HOME/bin:$PATH"
+export PATH="$HOME/.local/bin:$HOME/bin:$PATH"
 
 # chezmoi 跨平台一键无脑同步函数
 czsync() {
