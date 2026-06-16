@@ -93,13 +93,29 @@ setup_age_key() {
 
 # ---- 初始化并应用 dotfiles ----
 apply_dotfiles() {
+    # 第一步：clone 仓库（只拉取，不 apply）
     if [ -d ~/.local/share/chezmoi/.git ]; then
-        step "chezmoi 仓库已存在，直接 apply..."
-        chezmoi apply -v
+        step "chezmoi 仓库已存在，跳过 init..."
     else
-        step "chezmoi init --apply $DOTFILES_REPO"
-        chezmoi init --apply "$DOTFILES_REPO"
+        step "chezmoi init $DOTFILES_REPO (仅拉取，暂不应用)"
+        chezmoi init "$DOTFILES_REPO"
     fi
+
+    # 第二步：不信任模板，强制覆写本地配置
+    # 这是关键：跳过 .chezmoi.toml.tmpl 的模板解析，直接用 ${HOME} 动态拼路径
+    step "强制覆写 chezmoi.toml (绕过模板解析)"
+    mkdir -p ~/.config/chezmoi
+    cat << EOF > ~/.config/chezmoi/chezmoi.toml
+encryption = "age"
+
+[age]
+    identity = "${HOME}/.config/age/key.txt"
+    recipient = "age126732mgceh7cdfevzdv6tg63h00y2tmk2gza7dwvfu0jaa930aqs4lrln3"
+EOF
+
+    # 第三步：带着确定正确的配置执行 apply
+    step "chezmoi apply..."
+    chezmoi apply -v
 }
 
 # ---- 入口 ----
