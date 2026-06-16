@@ -154,25 +154,31 @@ export PATH=~/.npm-global/bin:$PATH
 alias vi='nvim'
 alias vim='nvim'
 
-# export PATH="/home/kipley/anaconda3/bin:$PATH"  # commented out by conda initialize
-
-# >>> conda initialize >>>
-# !! Contents within this block are managed by 'conda init' !!
-__conda_setup="$('/home/kipley/anaconda3/bin/conda' 'shell.bash' 'hook' 2>/dev/null)"
-if [ $? -eq 0 ]; then
-  eval "$__conda_setup"
-else
-  if [ -f "/home/kipley/anaconda3/etc/profile.d/conda.sh" ]; then
-    . "/home/kipley/anaconda3/etc/profile.d/conda.sh"
-  else
-    export PATH="/home/kipley/anaconda3/bin:$PATH"
-  fi
-fi
-unset __conda_setup
-# <<< conda initialize <<<
-
-. /home/kipley/anaconda3/etc/profile.d/conda.sh
-conda activate base
+# >>> conda initialize (auto-detect anaconda/miniconda, cross-platform) >>>
+_conda_paths=(
+    "$HOME/anaconda3"
+    "$HOME/miniconda3"
+    "/opt/anaconda3"
+    "/opt/miniconda3"
+    "/opt/homebrew/anaconda3"
+)
+for _conda_root in "${_conda_paths[@]}"; do
+    if [ -x "$_conda_root/bin/conda" ]; then
+        __conda_setup="$("$_conda_root/bin/conda" 'shell.bash' 'hook' 2>/dev/null)"
+        if [ $? -eq 0 ]; then
+            eval "$__conda_setup"
+        elif [ -f "$_conda_root/etc/profile.d/conda.sh" ]; then
+            . "$_conda_root/etc/profile.d/conda.sh"
+        else
+            export PATH="$_conda_root/bin:$PATH"
+        fi
+        unset __conda_setup _conda_root _conda_paths
+        conda activate base
+        break
+    fi
+done
+unset _conda_root _conda_paths
+# <<< conda initialize >>>
 
 # Added by LM Studio CLI tool (lms)
 export PATH="$PATH:/home/kipley/.lmstudio/bin"
