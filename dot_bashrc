@@ -150,10 +150,13 @@ export NVM_DIR="$HOME/.nvm"
 unset http_proxy https_proxy all_proxy ALL_PROXY HTTP_PROXY HTTPS_PROXY FTP_PROXY NO_PROXY
 export PATH=~/.npm-global/bin:$PATH
 
-# 有 nvim 就用 nvim，没有则用系统默认的 vi/vim
+# 有 nvim 就用 nvim，没有则退回系统默认的 vi/vim
 if command -v nvim &>/dev/null; then
     alias vi='nvim'
     alias vim='nvim'
+else
+    unalias vi  2>/dev/null || true
+    unalias vim 2>/dev/null || true
 fi
 
 # >>> conda initialize (auto-detect anaconda/miniconda, cross-platform) >>>
