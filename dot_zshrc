@@ -102,5 +102,5 @@ czsync() {
 }
 
 # 绑定极客快捷别名
-alias csz="czsync"
+
 
