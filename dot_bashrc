@@ -182,7 +182,7 @@ unset _conda_root _conda_paths
 
 # Added by LM Studio CLI tool (lms)
 export PATH="$PATH:/home/kipley/.lmstudio/bin"
-eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv bash)"
+[ -x /home/linuxbrew/.linuxbrew/bin/brew ] && eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv bash)"
 
 export PATH="$HOME/bin:$PATH"
 
