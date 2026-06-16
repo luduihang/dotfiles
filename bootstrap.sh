@@ -1,51 +1,124 @@
 #!/bin/bash
-# ==========================================
-# 极客透明开荒引导脚本 (仅需在新服务器手动执行一次)
-# ==========================================
+# ============================================================
+#  开荒引导脚本 — 新机器一键配齐 chezmoi + age + 全套 dotfiles
+#
+#  用法（一行命令）:
+#    bash -c "$(curl -fsSL https://raw.githubusercontent.com/luduihang/dotfiles/main/bootstrap.sh)"
+#
+#  或者本地执行:
+#    bash bootstrap.sh
+# ============================================================
 
-set -e # 遇到错误立即停止，方便你排查
+set -euo pipefail
 
-echo "🚀 [1/4] 开始检查并安装基础依赖 (age / chezmoi)..."
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
+DOTFILES_REPO="luduihang/dotfiles"
 
-# 1. 透明安装 age
-if ! command -v age &> /dev/null; then
-    echo "📦 检测到未安装 age，正在通过 apt 安装..."
-    sudo apt-get update -y && sudo apt-get install -y age
-else
-    echo "✅ age 已安装"
-fi
+step()  { echo -e "${GREEN}==>${NC} $*"; }
+warn()  { echo -e "${YELLOW}⚠${NC}  $*"; }
+error() { echo -e "${RED}✗${NC} $*"; exit 1; }
 
-# 2. 透明全局安装 chezmoi (装到 /usr/local/bin，避免路径找不到)
-if ! command -v chezmoi &> /dev/null; then
-    echo "📦 检测到未安装 chezmoi，正在拉取..."
-    sudo sh -c "$(curl -fsLS get.chezmoi.io)" -b /usr/local/bin
-else
-    echo "✅ chezmoi 已安装"
-fi
+# ---- 检测系统 ----
+detect_os() {
+    case "$(uname -s)" in
+        Darwin)  echo "macos" ;;
+        Linux)   echo "linux" ;;
+        *)       echo "unknown" ;;
+    esac
+}
+OS=$(detect_os)
 
-echo "🔑 [2/4] 配置解密环境..."
-mkdir -p ~/.config/age
+# ---- 安装 age ----
+install_age() {
+    if command -v age &>/dev/null; then
+        step "age 已安装 ($(age --version 2>&1 | head -1))"
+        return
+    fi
+    step "安装 age..."
+    case "$OS" in
+        macos) brew install age 2>/dev/null || error "brew install age 失败" ;;
+        linux)
+            if command -v apt-get &>/dev/null; then
+                sudo apt-get update -y && sudo apt-get install -y age
+            elif command -v dnf &>/dev/null; then
+                sudo dnf install -y age
+            elif command -v pacman &>/dev/null; then
+                sudo pacman -S --noconfirm age
+            else
+                error "未检测到 apt/dnf/pacman，请手动安装 age"
+            fi
+            ;;
+    esac
+    command -v age &>/dev/null || error "age 安装失败"
+}
 
-# 3. 交互式索要私钥（直接在终端输，不写死在任何文件里）
-if [ ! -f ~/.config/age/key.txt ]; then
-    read -r -p "请输入你的 AGE-SECRET-KEY (以 AGE-SECRET-KEY- 开头): " AGE_KEY
+# ---- 安装 chezmoi ----
+install_chezmoi() {
+    if command -v chezmoi &>/dev/null; then
+        step "chezmoi 已安装 ($(chezmoi --version 2>&1 | head -1))"
+        return
+    fi
+    step "安装 chezmoi..."
+    case "$OS" in
+        macos) brew install chezmoi 2>/dev/null || error "brew install chezmoi 失败" ;;
+        linux) sudo sh -c "$(curl -fsLS get.chezmoi.io)" -b /usr/local/bin ;;
+    esac
+    command -v chezmoi &>/dev/null || error "chezmoi 安装失败"
+}
+
+# ---- 配置 age 密钥 ----
+setup_age_key() {
+    mkdir -p ~/.config/age
+    if [ -f ~/.config/age/key.txt ]; then
+        step "age 密钥已存在 (~/.config/age/key.txt)"
+        return
+    fi
+    step "请输入 AGE 私钥"
+    echo ""
+    echo "  ▎密钥格式: AGE-SECRET-KEY-1..."
+    echo "  ▎密钥只存在你本地，不会上传到任何地方"
+    echo ""
+    read -r -p "AGE-SECRET-KEY: " AGE_KEY
+    if [ -z "$AGE_KEY" ]; then
+        warn "未输入密钥，跳过。稍后可手动放到 ~/.config/age/key.txt"
+        return
+    fi
     echo "$AGE_KEY" > ~/.config/age/key.txt
     chmod 600 ~/.config/age/key.txt
-    echo "✅ 密钥已安全写入 ~/.config/age/key.txt"
-else
-    echo "✅ 密钥文件已存在，跳过配置"
-fi
+    step "密钥已写入 ~/.config/age/key.txt"
+}
 
-echo "⚙️ [3/4] 动态生成自适应绝对路径配置..."
-mkdir -p ~/.config/chezmoi
-cat << EOF > ~/.config/chezmoi/chezmoi.toml
-encryption = "age"
+# ---- 初始化并应用 dotfiles ----
+apply_dotfiles() {
+    if [ -d ~/.local/share/chezmoi/.git ]; then
+        step "chezmoi 仓库已存在，直接 apply..."
+        chezmoi apply -v
+    else
+        step "chezmoi init --apply $DOTFILES_REPO"
+        chezmoi init --apply "$DOTFILES_REPO"
+    fi
+}
 
-[age]
-    identity = "${HOME}/.config/age/key.txt"
-    recipient = "age126732mgceh7cdfevzdv6tg63h00y2tmk2gza7dwvfu0jaa930aqs4lrln3"
-EOF
-echo "✅ chezmoi.toml 已生成 (路径: $HOME)"
+# ---- 入口 ----
+echo ""
+echo "  ╔══════════════════════════════════════════╗"
+echo "  ║       Dotfiles 开荒引导脚本              ║"
+echo "  ║  OS : $(uname -s) ($(uname -m))                         ║"
+echo "  ╚══════════════════════════════════════════╝"
+echo ""
 
-echo "🎉 [4/4] 引导完成！系统环境已对齐。"
-echo "👉 请在终端手动执行: chezmoi apply -v"
+install_age
+install_chezmoi
+setup_age_key
+apply_dotfiles
+
+echo ""
+echo "  ████████████████████████████████████████████"
+echo "  ▎  开荒完成！                              ▎"
+echo "  ▎  下次同步只需: csz                       ▎"
+echo "  ▎  切换模型:      cc-switch deepseek       ▎"
+echo "  ████████████████████████████████████████████"
+echo ""
