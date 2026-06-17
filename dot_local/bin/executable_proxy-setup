@@ -1,0 +1,178 @@
+#!/usr/bin/env bash
+# proxy-setup — 一键部署 mihomo 代理到当前环境
+# 由 chezmoi 管理，部署路径: ~/.local/bin/proxy-setup
+set -euo pipefail
+
+############### 可配置项 ###############
+MIHOMO_VERSION="${MIHOMO_VERSION:-v1.19.6}"
+MIHOMO_DIR="$HOME/.local/bin"
+MIHOMO_BIN="$MIHOMO_DIR/mihomo"
+CONFIG_DIR="$HOME/.config/mihomo"
+CONFIG_ENC="$CONFIG_DIR/config.yaml.age"
+CONFIG_FILE="$CONFIG_DIR/config.yaml"
+MIHOMO_PID_FILE="$CONFIG_DIR/mihomo.pid"
+MIHOMO_LOG_FILE="$CONFIG_DIR/mihomo.log"
+GITHUB_REPO="MetaCubeX/mihomo"
+######################################
+
+# 颜色输出
+RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; CYAN='\033[0;36m'; NC='\033[0m'
+info()  { echo -e "${GREEN}[INFO]${NC}  $*"; }
+warn()  { echo -e "${YELLOW}[WARN]${NC}  $*"; }
+err()   { echo -e "${RED}[ERR]${NC}   $*"; }
+step()  { echo -e "${CYAN}[STEP]${NC} $*"; }
+
+# ---------- 下载 mihomo ----------
+install_mihomo() {
+    if [ -x "$MIHOMO_BIN" ]; then
+        info "mihomo 已存在: $MIHOMO_BIN ($($MIHOMO_BIN --version 2>/dev/null || echo unknown))"
+        return 0
+    fi
+
+    local arch os suffix url
+    os="linux"
+    arch="amd64"
+    suffix="${os}-${arch}"
+
+    # 尝试获取最新版本
+    local version="$MIHOMO_VERSION"
+    if [ -z "${MIHOMO_VERSION:-}" ] || [ "$MIHOMO_VERSION" = "latest" ]; then
+        step "正在查询 mihomo 最新版本..."
+        version=$(curl -sSfL "https://api.github.com/repos/${GITHUB_REPO}/releases/latest" \
+            | grep '"tag_name"' | cut -d'"' -f4 2>/dev/null || echo "")
+        if [ -z "$version" ]; then
+            warn "无法获取最新版本，使用默认版本 v1.19.6"
+            version="v1.19.6"
+        fi
+    fi
+
+    local download_url="https://github.com/${GITHUB_REPO}/releases/download/${version}/mihomo-${suffix}-${version}.gz"
+
+    step "下载 mihomo ${version} ..."
+    mkdir -p "$MIHOMO_DIR"
+
+    if ! curl -fSL --progress-bar -o "${MIHOMO_BIN}.gz" "$download_url"; then
+        # 备选：尝试不带 v 前缀的版本号
+        local version_nov="${version#v}"
+        download_url="https://github.com/${GITHUB_REPO}/releases/download/${version}/mihomo-${suffix}-${version_nov}.gz"
+        info "尝试备选 URL: $download_url"
+        curl -fSL --progress-bar -o "${MIHOMO_BIN}.gz" "$download_url" || {
+            err "下载失败，请手动指定版本: MIHOMO_VERSION=vX.Y.Z proxy-setup"
+            err "或手动下载 mihomo 到 $MIHOMO_BIN"
+            return 1
+        }
+    fi
+
+    gunzip -f "${MIHOMO_BIN}.gz"
+    chmod +x "$MIHOMO_BIN"
+    rm -f "${MIHOMO_BIN}.gz"
+    info "mihomo ${version} 安装完成: $MIHOMO_BIN"
+}
+
+# ---------- 解密配置文件 ----------
+decrypt_config() {
+    mkdir -p "$CONFIG_DIR"
+
+    if [ -f "$CONFIG_FILE" ]; then
+        info "配置文件已存在: $CONFIG_FILE"
+        return 0
+    fi
+
+    if [ ! -f "$CONFIG_ENC" ]; then
+        err "未找到加密配置文件: $CONFIG_ENC"
+        err "请确保 chezmoi 已正确部署该文件"
+        return 1
+    fi
+
+    if [ ! -f "$HOME/.config/age/key.txt" ]; then
+        err "未找到 AGE 私钥: ~/.config/age/key.txt"
+        err "请先完成密钥迁移 (scp ~/.config/age/key.txt 到本机)"
+        return 1
+    fi
+
+    step "解密 mihomo 配置..."
+    if age -d -i "$HOME/.config/age/key.txt" -o "$CONFIG_FILE" "$CONFIG_ENC"; then
+        chmod 600 "$CONFIG_FILE"
+        info "配置解密完成: $CONFIG_FILE"
+    else
+        err "解密失败，请检查 AGE 密钥是否正确"
+        return 1
+    fi
+}
+
+# ---------- 启动 mihomo ----------
+start_mihomo() {
+    # 检查是否已经在运行
+    if [ -f "$MIHOMO_PID_FILE" ] && kill -0 "$(cat "$MIHOMO_PID_FILE")" 2>/dev/null; then
+        info "mihomo 已在运行 (PID: $(cat "$MIHOMO_PID_FILE"))"
+        return 0
+    fi
+
+    # 杀掉可能的残留进程
+    pkill -f "mihomo" 2>/dev/null || true
+    sleep 0.5
+
+    step "启动 mihomo (mixed-port: 7897)..."
+    nohup "$MIHOMO_BIN" -f "$CONFIG_FILE" > "$MIHOMO_LOG_FILE" 2>&1 &
+    local pid=$!
+    echo "$pid" > "$MIHOMO_PID_FILE"
+
+    sleep 1
+    if kill -0 "$pid" 2>/dev/null; then
+        info "mihomo 启动成功 (PID: $pid)"
+    else
+        err "mihomo 启动失败，查看日志: $MIHOMO_LOG_FILE"
+        return 1
+    fi
+}
+
+# ---------- 检查代理连通性 ----------
+check_proxy() {
+    step "检测代理连通性..."
+    if curl -s --max-time 3 -o /dev/null -w "%{http_code}" --proxy "http://127.0.0.1:7897" "http://www.google.com" 2>/dev/null | grep -q "200\|301\|302"; then
+        info "代理连通正常 ✓"
+    else
+        warn "代理暂不可达（可能容器网络限制或代理服务器未响应）"
+        warn "可手动检查: curl --proxy http://127.0.0.1:7897 http://www.google.com"
+    fi
+}
+
+# ---------- 打印使用说明 ----------
+print_usage() {
+    echo ""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "  🎉 mihomo 代理部署完成！"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "  代理地址: http://127.0.0.1:7897 (mixed HTTP/SOCKS5)"
+    echo ""
+    echo "  使用方法:"
+    echo "    proxy-on      开启终端代理"
+    echo "    proxy-off     关闭终端代理"
+    echo "    proxy-status  查看代理状态"
+    echo ""
+    echo "  管理命令:"
+    echo "    proxy-start   手动启动 mihomo"
+    echo "    proxy-stop    停止 mihomo"
+    echo "    proxy-restart 重启 mihomo"
+    echo ""
+    echo "  日志: $MIHOMO_LOG_FILE"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+}
+
+# ---------- main ----------
+main() {
+    echo ""
+    echo "╔══════════════════════════════════════════╗"
+    echo "║   mihomo 代理一键部署脚本                  ║"
+    echo "║   chezmoi dotfiles 集成                   ║"
+    echo "╚══════════════════════════════════════════╝"
+    echo ""
+
+    install_mihomo || return 1
+    decrypt_config || return 1
+    start_mihomo || return 1
+    check_proxy
+    print_usage
+}
+
+main "$@"

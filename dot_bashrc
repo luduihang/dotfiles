@@ -115,32 +115,71 @@ if ! shopt -oq posix; then
     . /etc/bash_completion
   fi
 fi
-# --- 实验室代理控制 ---
+# --- mihomo 本地代理控制 (mixed-port: 7897) ---
+PROXY_ADDR="http://127.0.0.1:7897"
+
 function proxy_on() {
-  export PROXY_ADDR="http://kb314314.asuscomm.com:8007"
   export http_proxy=$PROXY_ADDR
   export https_proxy=$PROXY_ADDR
   export all_proxy=$PROXY_ADDR
-  export ftp_proxy=$PROXY_ADDR
-  # 为一些不走标准变量的工具（如 git）单独配置
+  export HTTP_PROXY=$PROXY_ADDR
+  export HTTPS_PROXY=$PROXY_ADDR
+  export ALL_PROXY=$PROXY_ADDR
+  # 为 git 单独配置
   git config --global http.proxy $PROXY_ADDR
   git config --global https.proxy $PROXY_ADDR
-  echo "代理已开启: $PROXY_ADDR"
+  echo "✅ 代理已开启: $PROXY_ADDR (mihomo mixed-port)"
 }
 
 function proxy_off() {
-  unset http_proxy https_proxy all_proxy ftp_proxy
-  git config --global --unset http.proxy
-  git config --global --unset https.proxy
-  echo "代理已关闭"
+  unset http_proxy https_proxy all_proxy HTTP_PROXY HTTPS_PROXY ALL_PROXY
+  git config --global --unset http.proxy 2>/dev/null
+  git config --global --unset https.proxy 2>/dev/null
+  echo "🔌 代理已关闭"
 }
 
 function proxy_status() {
-  echo "当前代理状态："
-  echo "http_proxy  : $http_proxy"
-  echo "https_proxy : $https_proxy"
+  echo "━━ 环境变量 ━━"
+  echo "  http_proxy  = ${http_proxy:-未设置}"
+  echo "  https_proxy = ${https_proxy:-未设置}"
+  echo "  all_proxy   = ${all_proxy:-未设置}"
+  echo ""
+  if curl -s --max-time 2 -o /dev/null -w "%{http_code}" --proxy "$PROXY_ADDR" "http://www.gstatic.com/generate_204" 2>/dev/null | grep -q "204"; then
+    echo "━━ mihomo 代理 ━━"
+    echo "  状态: ✅ 运行中 ($PROXY_ADDR)"
+  elif pgrep -f "mihomo" >/dev/null 2>&1; then
+    echo "━━ mihomo 代理 ━━"
+    echo "  状态: ⚠️ 进程运行中但代理不可达"
+  else
+    echo "━━ mihomo 代理 ━━"
+    echo "  状态: ❌ 未运行"
+  fi
 }
-# ----------------------
+
+function proxy-start() {
+  if [ ! -x "$HOME/.local/bin/mihomo" ]; then
+    echo "❌ mihomo 未安装，请先运行: proxy-setup"
+    return 1
+  fi
+  if pgrep -f "mihomo" >/dev/null 2>&1; then
+    echo "mihomo 已在运行"
+    return 0
+  fi
+  nohup "$HOME/.local/bin/mihomo" -f "$HOME/.config/mihomo/config.yaml" > "$HOME/.config/mihomo/mihomo.log" 2>&1 &
+  echo "✅ mihomo 已启动 (PID: $!)"
+}
+
+function proxy-stop() {
+  pkill -f "mihomo" 2>/dev/null && echo "🛑 mihomo 已停止" || echo "mihomo 未在运行"
+  rm -f "$HOME/.config/mihomo/mihomo.pid"
+}
+
+function proxy-restart() {
+  proxy-stop
+  sleep 0.5
+  proxy-start
+}
+# ---------------------------------------------
 
 export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"                   # This loads nvm
