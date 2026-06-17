@@ -263,4 +263,13 @@ czsync() {
     fi
 }
 
+# >>> Fcitx 输入法（仅在有图形界面时生效）>>>
+# 检测 X11 (DISPLAY) 或 Wayland (WAYLAND_DISPLAY)；无桌面/纯终端/SSH 时不注入
+{{- if or (env "DISPLAY") (env "WAYLAND_DISPLAY") }}
+
+export GTK_IM_MODULE=fcitx
+export QT_IM_MODULE=fcitx
+export XMODIFIERS=@im=fcitx
+{{- end }}
+# <<< Fcitx 输入法 <<<
 
