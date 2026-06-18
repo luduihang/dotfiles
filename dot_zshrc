@@ -88,8 +88,14 @@ czsync() {
     echo "🚀 [Chezmoi] 正在识别原位修改..."
     if [ -f "$HOME/.zshrc" ]; then chezmoi add "$HOME/.zshrc"; fi
     if [ -f "$HOME/.bashrc" ]; then chezmoi add "$HOME/.bashrc"; fi
-    # 兜底：让 chezmoi 扫其他已被管理但有变动的文件
-    chezmoi add --auto-bool=false 2>/dev/null || true
+
+    # 兜底：扫所有 chezmoi 已管理的文件, 重新 add 检测到的所有变更
+    # 这样 ~/.ssh/config, ~/.gitconfig 等任何 managed 文件改了都会被自动捡到
+    while IFS= read -r managed_file; do
+        [ -n "$managed_file" ] || continue
+        [ -f "$managed_file" ] || continue
+        chezmoi add "$managed_file" 2>/dev/null || true
+    done < <(chezmoi managed 2>/dev/null)
 
     # 4. 检查是否有变更需要提交
     if [ -n "$(chezmoi git -- status --porcelain)" ]; then
@@ -111,3 +117,4 @@ czsync() {
 # 绑定极客快捷别名
 
 
+# czsync-test-1781762023

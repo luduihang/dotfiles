@@ -26,6 +26,20 @@ Host lab-kipley
     Port 45623
     User kipley
 
+Host tecent-lab
+    HostName 162.14.77.140
+    Port 6024
+    User root
+    ServerAliveInterval 60
+    ServerAliveCountMax 3
+
+Host tecent-lab-kipley
+    HostName 162.14.77.140
+    Port 6024
+    User kipley
+    ServerAliveInterval 60
+    ServerAliveCountMax 3
+
 
 Host tecent-server
     HostName 162.14.77.140
