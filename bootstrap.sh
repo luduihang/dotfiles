@@ -261,6 +261,15 @@ apply_dotfiles() {
     step "chezmoi apply..."
     mkdir -p "$HOME/.local/share/chezmoi"
     chezmoi apply -v
+
+    # apply 后 .chezmoi.toml.tmpl 会覆盖 toml，强制写回 source.dir
+    # 不依赖模板里的 {{ .chezmoi.sourceDir }}，避免 apply 时解析成默认路径
+    step "固化 source.dir = $SCRIPT_DIR"
+    if grep -q '^source\.dir' "$HOME/.config/chezmoi/chezmoi.toml" 2>/dev/null; then
+        sed -i "s|^source\.dir.*|source.dir = \"$SCRIPT_DIR\"|" "$HOME/.config/chezmoi/chezmoi.toml"
+    else
+        echo "source.dir = \"$SCRIPT_DIR\"" >> "$HOME/.config/chezmoi/chezmoi.toml"
+    fi
 }
 
 # ---- 入口 ----
