@@ -178,23 +178,17 @@ apply_dotfiles() {
         fi
     fi
 
-    # 强制覆写 chezmoi.toml
-    # 关键: 用顶层点键 source.dir (不是 [source] 表) — 后者 chezmoi 不一定识别
-    # 同时 apply 步骤显式传 --source 双保险, 避免 toml 不生效时还去找默认 ~/.local/share/chezmoi
-    step "写 chezmoi.toml (含 source.dir 持久化源路径)"
-    mkdir -p ~/.config/chezmoi
-    cat << EOF > ~/.config/chezmoi/chezmoi.toml
-encryption = "age"
-
-[age]
-    identity = "${HOME}/.config/age/key.txt"
-    recipient = "age126732mgceh7cdfevzdv6tg63h00y2tmk2gza7dwvfu0jaa930aqs4lrln3"
-
-source.dir = "${SCRIPT_DIR}"
-EOF
-
-    step "chezmoi apply --source=\$SCRIPT_DIR (双保险)..."
-    chezmoi apply --source="$SCRIPT_DIR" -v
+    # .chezmoi.toml.tmpl 已通过 {{ .chezmoi.sourceDir }} 自动持久化源路径
+    # 不再手动覆写 toml，避免和模板互相覆盖
+    step "chezmoi apply..."
+    mkdir -p ~/.local/share/chezmoi
+    if [ "$OFFLINE" = 1 ]; then
+        # 离线: 显式 --source 双保险
+        chezmoi apply --source="$SCRIPT_DIR" -v
+    else
+        # 在线: 信任 chezmoi init 写入的 source.dir，不传 --source
+        chezmoi apply -v
+    fi
 }
 
 # ---- 入口 ----
