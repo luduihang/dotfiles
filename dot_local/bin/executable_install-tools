@@ -10,17 +10,6 @@ err()   { echo -e "${RED}✗${NC}  $*"; exit 1; }
 
 OS=$(uname -s | tr '[:upper:]' '[:lower:]')
 
-# ── Rust (yazi cargo 安装的前置) ──
-install_rust() {
-    if command -v cargo &>/dev/null; then
-        step "cargo 已安装"
-        return
-    fi
-    step "安装 Rust..."
-    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --quiet
-    [ -f "$HOME/.cargo/env" ] && source "$HOME/.cargo/env"
-}
-
 # ── nvim ──
 install_nvim() {
     if command -v nvim &>/dev/null; then
@@ -56,19 +45,26 @@ install_yazi() {
         darwin) brew install yazi ;;
         linux)
             if command -v pacman &>/dev/null; then
-                sudo pacman -S --noconfirm yazi
-            elif command -v apt-get &>/dev/null; then
-                sudo apt-get update -y && sudo apt-get install -y yazi 2>/dev/null || {
-                    warn "apt 无 yazi 包，改用 cargo 安装..."
-                    install_rust
-                    cargo install --force yazi-build
-                    cargo install --locked yazi-fm yazi-cli
-                }
-            else
-                install_rust
-                cargo install --force yazi-build
-                cargo install --locked yazi-fm yazi-cli
+                sudo pacman -S --noconfirm yazi && return
             fi
+            if command -v apt-get &>/dev/null; then
+                sudo apt-get update -y && sudo apt-get install -y yazi 2>/dev/null && return
+            fi
+            # 包管理器没有 yazi → 下载预编译二进制
+            local arch target url tmpdir
+            case "$(uname -m)" in
+                x86_64)  target="x86_64-unknown-linux-gnu" ;;
+                aarch64) target="aarch64-unknown-linux-gnu" ;;
+                *)       err "不支持的架构: $(uname -m)" ;;
+            esac
+            url="https://github.com/sxyazi/yazi/releases/download/v26.5.6/yazi-${target}.zip"
+            step "下载 yazi 预编译包..."
+            tmpdir=$(mktemp -d)
+            curl -fSL --progress-bar -o "$tmpdir/yazi.zip" "$url" || err "下载失败: $url"
+            unzip -qo "$tmpdir/yazi.zip" -d "$tmpdir"
+            install -m 0755 "$tmpdir/yazi-${target}/yazi" "$HOME/.local/bin/yazi"
+            install -m 0755 "$tmpdir/yazi-${target}/ya" "$HOME/.local/bin/ya"
+            rm -rf "$tmpdir"
             ;;
     esac
     command -v yazi &>/dev/null || err "yazi 安装失败"

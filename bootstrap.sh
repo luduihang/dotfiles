@@ -223,30 +223,29 @@ install_yazi() {
         darwin) brew install yazi 2>/dev/null || error "brew install yazi 失败" ;;
         linux)
             if command -v pacman &>/dev/null; then
-                sudo pacman -S --noconfirm yazi
-            elif command -v apt-get &>/dev/null; then
-                sudo apt-get update -y && sudo apt-get install -y yazi 2>/dev/null || {
-                    warn "apt 无 yazi 包，改用 cargo 安装..."
-                    install_rust
-                    cargo install --force yazi-build
-                    cargo install --locked yazi-fm yazi-cli
-                }
-            else
-                install_rust
-                cargo install --force yazi-build
-                cargo install --locked yazi-fm yazi-cli
+                sudo pacman -S --noconfirm yazi && return
             fi
+            if command -v apt-get &>/dev/null; then
+                sudo apt-get update -y && sudo apt-get install -y yazi 2>/dev/null && return
+            fi
+            # 包管理器没有 → 下载预编译二进制
+            step "下载 yazi 预编译包..."
+            local target url tmpdir
+            case "$ARCH" in
+                amd64) target="x86_64-unknown-linux-gnu" ;;
+                arm64) target="aarch64-unknown-linux-gnu" ;;
+                *) error "不支持的架构: $ARCH" ;;
+            esac
+            url="https://github.com/sxyazi/yazi/releases/download/v26.5.6/yazi-${target}.zip"
+            tmpdir=$(mktemp -d)
+            curl -fSL --progress-bar -o "$tmpdir/yazi.zip" "$url" || error "下载失败: $url"
+            unzip -qo "$tmpdir/yazi.zip" -d "$tmpdir"
+            install -m 0755 "$tmpdir/yazi-${target}/yazi" "$HOME/.local/bin/yazi"
+            install -m 0755 "$tmpdir/yazi-${target}/ya" "$HOME/.local/bin/ya"
+            rm -rf "$tmpdir"
             ;;
     esac
-    command -v yazi &>/dev/null || warn "yazi 安装失败，可手动安装"
-}
-
-# ---- 安装 Rust (yazi cargo 安装的前置) ----
-install_rust() {
-    if command -v cargo &>/dev/null; then return; fi
-    step "安装 Rust (yazi 前置依赖)..."
-    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --quiet
-    [ -f "$HOME/.cargo/env" ] && source "$HOME/.cargo/env"
+    command -v yazi &>/dev/null || error "yazi 安装失败"
 }
 
 # ---- 配置 age 密钥 ----
