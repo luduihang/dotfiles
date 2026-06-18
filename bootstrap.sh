@@ -200,6 +200,23 @@ setup_age_key() {
     step "密钥已写入 ~/.config/age/key.txt"
 }
 
+# ---- 写 ~/.config/chezmoi/chezmoi.toml (固化 source.dir, 一劳永逸) ----
+# 关键: 不管 dotfiles clone 到哪里, 写完后 chezmoi apply 不再需要 --source
+write_chezmoi_toml() {
+    step "写 chezmoi.toml (固化 source.dir = $SCRIPT_DIR)"
+    mkdir -p "$HOME/.config/chezmoi"
+    cat > "$HOME/.config/chezmoi/chezmoi.toml" << EOF
+encryption = "age"
+
+[age]
+    identity = "$HOME/.config/age/key.txt"
+    recipient = "age126732mgceh7cdfevzdv6tg63h00y2tmk2gza7dwvfu0jaa930aqs4lrln3"
+
+source.dir = "$SCRIPT_DIR"
+EOF
+    info "chezmoi.toml 已写入 -> 以后 'chezmoi apply' 无需 --source"
+}
+
 # ---- 初始化并应用 dotfiles ----
 apply_dotfiles() {
     if [ -d ~/.local/share/chezmoi/.git ]; then
@@ -215,12 +232,13 @@ apply_dotfiles() {
         fi
     fi
 
+    # 无论 init 时用了 --source 还是从默认路径, 都把 source.dir 写进 toml
+    # 这样后续 'chezmoi apply' (无 --source) 也能找到源
+    write_chezmoi_toml
+
     step "chezmoi apply..."
-    if [ "$SCRIPT_DIR" != "$HOME/.local/share/chezmoi" ]; then
-        chezmoi apply --source="$SCRIPT_DIR" -v
-    else
-        chezmoi apply -v
-    fi
+    # 现在 toml 里已有 source.dir, 直接 apply 即可, 无需 --source
+    chezmoi apply -v
 }
 
 # ---- 入口 ----
