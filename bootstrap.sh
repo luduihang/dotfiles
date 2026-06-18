@@ -218,15 +218,22 @@ fix_git_branch() {
         return
     fi
 
-    if ! chezmoi git -- rev-parse --abbrev-ref '@{upstream}' &>/dev/null; then
-        step "修复 git 分支跟踪: $current_branch -> origin/$current_branch"
-        chezmoi git -- branch --set-upstream-to="origin/$current_branch" 2>/dev/null || {
-            if chezmoi git -- ls-remote origin main &>/dev/null; then
-                step "远端无 origin/$current_branch，切换到 main"
-                chezmoi git -- checkout main 2>/dev/null && \
-                    chezmoi git -- branch --set-upstream-to=origin/main main
-            fi
-        }
+    # 已有 upstream 则跳过
+    chezmoi git -- rev-parse --abbrev-ref '@{upstream}' &>/dev/null && return
+
+    # 尝试设 upstream 到 origin/<当前分支>
+    if chezmoi git -- branch --set-upstream-to="origin/$current_branch" 2>/dev/null; then
+        step "分支跟踪已设置: $current_branch -> origin/$current_branch"
+        return
+    fi
+
+    # origin/<当前分支> 不存在 (如旧 master → 新 main), 切到 main
+    if chezmoi git -- fetch origin main 2>/dev/null; then
+        step "远端无 origin/$current_branch，切换到 main"
+        chezmoi git -- checkout -B main origin/main 2>/dev/null
+        chezmoi git -- branch --set-upstream-to=origin/main main 2>/dev/null || true
+    else
+        warn "无法获取远端 origin/main，跳过分支修复（检查网络/SSH Key）"
     fi
 }
 
