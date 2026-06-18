@@ -1,0 +1,88 @@
+#!/usr/bin/env bash
+# install-tools — 在线安装 nvim + yazi (及前置依赖)
+# 部署路径: ~/.local/bin/install-tools
+set -euo pipefail
+
+GREEN='\033[0;32m'; RED='\033[0;31m'; YELLOW='\033[1;33m'; NC='\033[0m'
+step()  { echo -e "${GREEN}==>${NC} $*"; }
+warn()  { echo -e "${YELLOW}⚠${NC}  $*"; }
+err()   { echo -e "${RED}✗${NC}  $*"; exit 1; }
+
+OS=$(uname -s | tr '[:upper:]' '[:lower:]')
+
+# ── Rust (yazi cargo 安装的前置) ──
+install_rust() {
+    if command -v cargo &>/dev/null; then
+        step "cargo 已安装"
+        return
+    fi
+    step "安装 Rust..."
+    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --quiet
+    [ -f "$HOME/.cargo/env" ] && source "$HOME/.cargo/env"
+}
+
+# ── nvim ──
+install_nvim() {
+    if command -v nvim &>/dev/null; then
+        step "nvim 已安装 ($(nvim --version 2>&1 | head -1))"
+        return
+    fi
+    step "安装 nvim..."
+    case "$OS" in
+        darwin) brew install nvim ;;
+        linux)
+            if command -v apt-get &>/dev/null; then
+                sudo apt-get update -y && sudo apt-get install -y neovim
+            elif command -v dnf &>/dev/null; then
+                sudo dnf install -y neovim
+            elif command -v pacman &>/dev/null; then
+                sudo pacman -S --noconfirm neovim
+            else
+                err "未检测到 apt/dnf/pacman，请手动安装 neovim"
+            fi
+            ;;
+    esac
+    command -v nvim &>/dev/null || err "nvim 安装失败"
+}
+
+# ── yazi ──
+install_yazi() {
+    if command -v yazi &>/dev/null; then
+        step "yazi 已安装 ($(yazi --version 2>&1))"
+        return
+    fi
+    step "安装 yazi..."
+    case "$OS" in
+        darwin) brew install yazi ;;
+        linux)
+            if command -v pacman &>/dev/null; then
+                sudo pacman -S --noconfirm yazi
+            elif command -v apt-get &>/dev/null; then
+                sudo apt-get update -y && sudo apt-get install -y yazi 2>/dev/null || {
+                    warn "apt 无 yazi 包，改用 cargo 安装..."
+                    install_rust
+                    cargo install --locked yazi-fm yazi-cli
+                }
+            else
+                install_rust
+                cargo install --locked yazi-fm yazi-cli
+            fi
+            ;;
+    esac
+    command -v yazi &>/dev/null || err "yazi 安装失败"
+}
+
+# ── main ──
+echo ""
+echo "  ╔══════════════════════════════╗"
+echo "  ║   install-tools             ║"
+echo "  ║   nvim + yazi 一键安装      ║"
+echo "  ╚══════════════════════════════╝"
+echo ""
+
+install_nvim
+install_yazi
+
+echo ""
+echo "  ✅ nvim + yazi 安装完成"
+echo ""
