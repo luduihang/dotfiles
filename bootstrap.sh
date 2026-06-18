@@ -100,6 +100,11 @@ copy_mihomo_config() {
     chmod 600 "$MIHOMO_CONFIG_DST"
 }
 
+# ---- 检测桌面环境 (有 GUI 就不启动 mihomo 内核，避免和 Clash Verge 冲突) ----
+has_desktop() {
+    [ -n "${DISPLAY:-}" ] || [ -n "${WAYLAND_DISPLAY:-}" ]
+}
+
 # ---- 启动 mihomo ----
 start_mihomo() {
     if [ -f "$MIHOMO_PID_FILE" ] && kill -0 "$(cat "$MIHOMO_PID_FILE")" 2>/dev/null; then
@@ -229,8 +234,14 @@ echo ""
 # 阶段 1: 搭代理 (唯一需要离线包的部分)
 install_mihomo
 copy_mihomo_config
-start_mihomo
-check_proxy
+
+if has_desktop; then
+    warn "检测到桌面环境 (DISPLAY/WAYLAND_DISPLAY)，跳过 mihomo 内核启动"
+    warn "请使用桌面端 Clash Verge 来管理代理"
+else
+    start_mihomo
+    check_proxy
+fi
 
 # 阶段 2: 代理通了，在线装 age 和 chezmoi
 install_age
