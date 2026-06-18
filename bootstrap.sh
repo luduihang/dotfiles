@@ -245,8 +245,8 @@ apply_dotfiles() {
     mkdir -p "$HOME/.config/chezmoi"
 
     if [ -f "$SCRIPT_DIR/.chezmoi.toml.tmpl" ]; then
-        # 本地: 写 source.dir → chezmoi init 读 config 找到模板 → 生成完整 toml
-        echo "source.dir = \"$SCRIPT_DIR\"" > "$HOME/.config/chezmoi/chezmoi.toml"
+        # 本地: 写 sourceDir → chezmoi init 读 config 找到模板 → 生成完整 toml
+        echo "sourceDir = \"$SCRIPT_DIR\"" > "$HOME/.config/chezmoi/chezmoi.toml"
         chezmoi init
     elif [ -d "$HOME/.local/share/chezmoi/.git" ]; then
         # 仓库已存在，刷新配置
@@ -262,14 +262,11 @@ apply_dotfiles() {
     mkdir -p "$HOME/.local/share/chezmoi"
     chezmoi apply -v
 
-    # apply 后 .chezmoi.toml.tmpl 会覆盖 toml，强制写回 source.dir
-    # 不依赖模板里的 {{ .chezmoi.sourceDir }}，避免 apply 时解析成默认路径
-    step "固化 source.dir = $SCRIPT_DIR"
-    if grep -q '^source\.dir' "$HOME/.config/chezmoi/chezmoi.toml" 2>/dev/null; then
-        sed -i "s|^source\.dir.*|source.dir = \"$SCRIPT_DIR\"|" "$HOME/.config/chezmoi/chezmoi.toml"
-    else
-        echo "source.dir = \"$SCRIPT_DIR\"" >> "$HOME/.config/chezmoi/chezmoi.toml"
-    fi
+    # apply 后 .chezmoi.toml.tmpl 会覆盖 toml，强制写回 sourceDir
+    # 使用 camelCase sourceDir (非 source.dir) — chezmoi 只认前者
+    step "固化 sourceDir = $SCRIPT_DIR"
+    sed -i '/^source\.dir/d; /^sourceDir/d' "$HOME/.config/chezmoi/chezmoi.toml"
+    echo "sourceDir = \"$SCRIPT_DIR\"" >> "$HOME/.config/chezmoi/chezmoi.toml"
 }
 
 # ---- 入口 ----
