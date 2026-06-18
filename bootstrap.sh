@@ -209,6 +209,29 @@ setup_age_key() {
     step "密钥已写入 ~/.config/age/key.txt"
 }
 
+# ---- 修复 chezmoi 仓库 git 分支跟踪 ----
+fix_git_branch() {
+    local current_branch
+    current_branch=$(chezmoi git -- branch --show-current 2>/dev/null || echo "")
+    if [ -z "$current_branch" ]; then
+        warn "无法检测 chezmoi 仓库当前分支，跳过分支修复"
+        return
+    fi
+
+    # 如果当前分支没有 upstream 跟踪，设置为 origin/<当前分支>
+    if ! chezmoi git -- rev-parse --abbrev-ref '@{upstream}' &>/dev/null; then
+        step "修复 git 分支跟踪: $current_branch -> origin/$current_branch"
+        chezmoi git -- branch --set-upstream-to="origin/$current_branch" 2>/dev/null || {
+            # 如果 origin/<当前分支> 不存在，尝试切到 main
+            if chezmoi git -- ls-remote origin main &>/dev/null; then
+                step "远端无 origin/$current_branch，切换到 main"
+                chezmoi git -- checkout main 2>/dev/null && \
+                    chezmoi git -- branch --set-upstream-to=origin/main main
+            fi
+        }
+    fi
+}
+
 # ---- 初始化并应用 dotfiles ----
 apply_dotfiles() {
     # 始终执行 chezmoi init 以从 .chezmoi.toml.tmpl 重新生成配置
@@ -223,6 +246,9 @@ apply_dotfiles() {
         step "chezmoi init $DOTFILES_REPO (从远端 clone)"
         chezmoi init "$DOTFILES_REPO"
     fi
+
+    # 自动修复 git 分支跟踪 (避免 czsync pull 失败)
+    fix_git_branch
 
     # 安全网: 确保 toml 有 source.dir (模板已有, 此处以防旧模板未更新)
     if ! grep -q 'source\.dir' "$HOME/.config/chezmoi/chezmoi.toml" 2>/dev/null; then
