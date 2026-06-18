@@ -108,3 +108,8 @@ Host bestvm-server
     KexAlgorithms curve25519-sha256@libssh.org
     IPQoS none
     Port 22
+
+Host ldh 
+  HostName 0.0.0.0
+  User root
+  Port 22
