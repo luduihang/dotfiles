@@ -96,6 +96,7 @@ czsync() {
         case "$managed_path" in
             */.ssh/id_*) continue ;;                  # 跳过 SSH 私钥
             *.age) continue ;;                        # 跳过 age 加密文件 (每次 add 重加密会假 diff)
+            */bin/*) continue ;;                      # 跳过 bin/ 离线包 (不常变, 省扫描时间)
         esac
         chezmoi add "$managed_path" 2>/dev/null || true
     done < <(chezmoi managed --path-style absolute --exclude=encrypted 2>/dev/null)
