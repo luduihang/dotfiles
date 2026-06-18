@@ -61,10 +61,12 @@ install_yazi() {
                 sudo apt-get update -y && sudo apt-get install -y yazi 2>/dev/null || {
                     warn "apt 无 yazi 包，改用 cargo 安装..."
                     install_rust
+                    cargo install --force yazi-build
                     cargo install --locked yazi-fm yazi-cli
                 }
             else
                 install_rust
+                cargo install --force yazi-build
                 cargo install --locked yazi-fm yazi-cli
             fi
             ;;
