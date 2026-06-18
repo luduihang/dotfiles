@@ -1,0 +1,37 @@
+mixed-port: 7897
+allow-lan: true
+mode: rule
+log-level: info
+
+proxies:
+  - name: "VLESS-Reality-Node"
+    type: vless
+    server: 23.27.28.186
+    port: 443
+    uuid: baedd174-2b70-48af-aa30-7d6fe8032511
+    network: tcp
+    tls: true
+    udp: true
+    flow: xtls-rprx-vision
+    servername: www.microsoft.com
+    client-fingerprint: chrome
+    reality-opts:
+      public-key: GRoTjz_4e25fz72EIyIWqJIEup7aATVu97dlUlXy_gs
+      short-id: 66a45e219e83a06c
+
+proxy-groups:
+  - name: "Proxy"
+    type: select
+    proxies:
+      - "VLESS-Reality-Node"
+      - "DIRECT"
+
+rules:
+  - DOMAIN,easytake.work,DIRECT
+  - GEOIP,CN,DIRECT
+  - DOMAIN-SUFFIX,baidu.com,DIRECT
+  - DOMAIN-SUFFIX,bilibili.com,DIRECT
+  - DOMAIN-SUFFIX,qq.com,DIRECT
+  - DOMAIN-SUFFIX,weibo.com,DIRECT
+  - DOMAIN-SUFFIX,alipay.com,DIRECT
+  - MATCH,Proxy

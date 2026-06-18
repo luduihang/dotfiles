@@ -145,8 +145,8 @@ install_mihomo() {
     info "mihomo ${version} 安装完成: $MIHOMO_BIN"
 }
 
-# ---------- 解密配置文件 ----------
-decrypt_config() {
+# ---------- 部署 mihomo 配置 (明文, 直接拷贝) ----------
+copy_mihomo_config() {
     mkdir -p "$CONFIG_DIR"
 
     if [ -f "$CONFIG_FILE" ]; then
@@ -154,26 +154,17 @@ decrypt_config() {
         return 0
     fi
 
-    if [ ! -f "$CONFIG_ENC" ]; then
-        err "未找到加密配置文件: $CONFIG_ENC"
-        err "请确保 chezmoi 已正确部署该文件"
+    # 优先从 chezmoi 源目录找 (开发态)
+    local config_src="$SCRIPT_DIR/dot_config/mihomo/config.yaml"
+    if [ ! -f "$config_src" ]; then
+        err "未找到 mihomo 配置: $config_src"
         return 1
     fi
 
-    if [ ! -f "$HOME/.config/age/key.txt" ]; then
-        err "未找到 AGE 私钥: ~/.config/age/key.txt"
-        err "请先完成密钥迁移 (scp ~/.config/age/key.txt 到本机)"
-        return 1
-    fi
-
-    step "解密 mihomo 配置..."
-    if age -d -i "$HOME/.config/age/key.txt" -o "$CONFIG_FILE" "$CONFIG_ENC"; then
-        chmod 600 "$CONFIG_FILE"
-        info "配置解密完成: $CONFIG_FILE"
-    else
-        err "解密失败，请检查 AGE 密钥是否正确"
-        return 1
-    fi
+    step "部署 mihomo 配置 (明文拷贝)..."
+    cp "$config_src" "$CONFIG_FILE"
+    chmod 600 "$CONFIG_FILE"
+    info "配置部署完成: $CONFIG_FILE"
 }
 
 # ---------- 启动 mihomo ----------
@@ -246,7 +237,7 @@ main() {
     echo ""
 
     install_mihomo || return 1
-    decrypt_config || return 1
+    copy_mihomo_config || return 1
     start_mihomo || return 1
     check_proxy
     print_usage
