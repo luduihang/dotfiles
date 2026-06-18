@@ -239,20 +239,17 @@ fix_git_branch() {
 
 # ---- 初始化并应用 dotfiles ----
 apply_dotfiles() {
-    # 先写最小 config 指路, 再让 chezmoi init 从模板生成完整 config
-    # 避免 --source 模式下 chezmoi git 初始化不完全的问题
     step "chezmoi init..."
-    mkdir -p "$HOME/.config/chezmoi"
+    local src_flag=""
 
     if [ -f "$SCRIPT_DIR/.chezmoi.toml.tmpl" ]; then
-        # 本地: 写 sourceDir → chezmoi init 读 config 找到模板 → 生成完整 toml
-        echo "sourceDir = \"$SCRIPT_DIR\"" > "$HOME/.config/chezmoi/chezmoi.toml"
-        chezmoi init
+        # 本地: 从 SCRIPT_DIR 初始化, sourceDir 由模板固化到 config
+        chezmoi init --source="$SCRIPT_DIR"
+        src_flag="--source=$SCRIPT_DIR"
     elif [ -d "$HOME/.local/share/chezmoi/.git" ]; then
-        # 仓库已存在，刷新配置
         chezmoi init
     else
-        # oneliner / 全新: 从远端 clone
+        # oneliner / 全新: 从远端 clone 到默认路径
         chezmoi init "$DOTFILES_REPO"
     fi
 
@@ -260,13 +257,7 @@ apply_dotfiles() {
 
     step "chezmoi apply..."
     mkdir -p "$HOME/.local/share/chezmoi"
-    chezmoi apply -v
-
-    # apply 后 .chezmoi.toml.tmpl 会覆盖 toml，强制写回 sourceDir
-    # 使用 camelCase sourceDir (非 source.dir) — chezmoi 只认前者
-    step "固化 sourceDir = $SCRIPT_DIR"
-    sed -i '/^source\.dir/d; /^sourceDir/d' "$HOME/.config/chezmoi/chezmoi.toml"
-    echo "sourceDir = \"$SCRIPT_DIR\"" >> "$HOME/.config/chezmoi/chezmoi.toml"
+    chezmoi apply $src_flag -v
 }
 
 # ---- 入口 ----
