@@ -218,11 +218,9 @@ fix_git_branch() {
         return
     fi
 
-    # 如果当前分支没有 upstream 跟踪，设置为 origin/<当前分支>
     if ! chezmoi git -- rev-parse --abbrev-ref '@{upstream}' &>/dev/null; then
         step "修复 git 分支跟踪: $current_branch -> origin/$current_branch"
         chezmoi git -- branch --set-upstream-to="origin/$current_branch" 2>/dev/null || {
-            # 如果 origin/<当前分支> 不存在，尝试切到 main
             if chezmoi git -- ls-remote origin main &>/dev/null; then
                 step "远端无 origin/$current_branch，切换到 main"
                 chezmoi git -- checkout main 2>/dev/null && \
@@ -234,27 +232,24 @@ fix_git_branch() {
 
 # ---- 初始化并应用 dotfiles ----
 apply_dotfiles() {
-    # 始终执行 chezmoi init 以从 .chezmoi.toml.tmpl 重新生成配置
-    # .chezmoi.toml.tmpl 已包含 source.dir = "{{ .chezmoi.sourceDir }}"
-    if [ "$SCRIPT_DIR" != "$HOME/.local/share/chezmoi" ]; then
-        step "chezmoi init --source=$SCRIPT_DIR"
-        chezmoi init --source="$SCRIPT_DIR"
-    elif [ -d ~/.local/share/chezmoi/.git ]; then
-        step "chezmoi init (刷新配置, 仓库已存在)"
-        chezmoi init 2>/dev/null || chezmoi init --source="$SCRIPT_DIR"
+    # 先写最小 config 指路, 再让 chezmoi init 从模板生成完整 config
+    # 避免 --source 模式下 chezmoi git 初始化不完全的问题
+    step "chezmoi init..."
+    mkdir -p "$HOME/.config/chezmoi"
+
+    if [ -f "$SCRIPT_DIR/.chezmoi.toml.tmpl" ]; then
+        # 本地: 写 source.dir → chezmoi init 读 config 找到模板 → 生成完整 toml
+        echo "source.dir = \"$SCRIPT_DIR\"" > "$HOME/.config/chezmoi/chezmoi.toml"
+        chezmoi init
+    elif [ -d "$HOME/.local/share/chezmoi/.git" ]; then
+        # 仓库已存在，刷新配置
+        chezmoi init
     else
-        step "chezmoi init $DOTFILES_REPO (从远端 clone)"
+        # oneliner / 全新: 从远端 clone
         chezmoi init "$DOTFILES_REPO"
     fi
 
-    # 自动修复 git 分支跟踪 (避免 czsync pull 失败)
     fix_git_branch
-
-    # 安全网: 确保 toml 有 source.dir (模板已有, 此处以防旧模板未更新)
-    if ! grep -q 'source\.dir' "$HOME/.config/chezmoi/chezmoi.toml" 2>/dev/null; then
-        step "补写 source.dir 到 chezmoi.toml (安全网)"
-        echo "source.dir = \"$SCRIPT_DIR\"" >> "$HOME/.config/chezmoi/chezmoi.toml"
-    fi
 
     step "chezmoi apply..."
     mkdir -p "$HOME/.local/share/chezmoi"
