@@ -187,71 +187,6 @@ install_chezmoi() {
     command -v chezmoi &>/dev/null || error "chezmoi 安装失败"
 }
 
-# ---- 安装 nvim ----
-install_nvim() {
-    if command -v nvim &>/dev/null; then
-        step "nvim 已安装 ($(nvim --version 2>&1 | head -1))"
-        return
-    fi
-    step "安装 nvim..."
-    case "$OS" in
-        darwin) brew install nvim 2>/dev/null || error "brew install nvim 失败" ;;
-        linux)
-            if command -v apt-get &>/dev/null; then
-                sudo apt-get update -y && sudo apt-get install -y neovim
-            elif command -v dnf &>/dev/null; then
-                sudo dnf install -y neovim
-            elif command -v pacman &>/dev/null; then
-                sudo pacman -S --noconfirm neovim
-            else
-                warn "未检测到 apt/dnf/pacman，跳 nvim 安装"
-                return
-            fi
-            ;;
-    esac
-    command -v nvim &>/dev/null || warn "nvim 安装失败，可手动安装"
-}
-
-# ---- 安装 yazi ----
-install_yazi() {
-    if command -v yazi &>/dev/null; then
-        step "yazi 已安装 ($(yazi --version 2>&1))"
-        return
-    fi
-    step "安装 yazi..."
-    case "$OS" in
-        darwin) brew install yazi 2>/dev/null || error "brew install yazi 失败" ;;
-        linux)
-            if command -v cargo &>/dev/null; then
-                cargo install --locked yazi-fm yazi-cli
-            elif command -v apt-get &>/dev/null; then
-                sudo apt-get update -y && sudo apt-get install -y yazi 2>/dev/null || {
-                    warn "apt 无 yazi 包，尝试 cargo 安装..."
-                    install_rust
-                    cargo install --locked yazi-fm yazi-cli
-                }
-            elif command -v pacman &>/dev/null; then
-                sudo pacman -S --noconfirm yazi
-            else
-                warn "未检测到 apt/pacman/cargo，跳 yazi 安装"
-                return
-            fi
-            ;;
-    esac
-    command -v yazi &>/dev/null || warn "yazi 安装失败，可手动安装 (brew/apt/pacman/cargo)"
-}
-
-# ---- 安装 Rust (yazi cargo 安装的前置依赖) ----
-install_rust() {
-    if command -v cargo &>/dev/null; then
-        return
-    fi
-    step "安装 Rust (yazi 前置依赖)..."
-    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --quiet
-    # shellcheck source=/dev/null
-    [ -f "$HOME/.cargo/env" ] && source "$HOME/.cargo/env"
-}
-
 # ---- 配置 age 密钥 ----
 setup_age_key() {
     mkdir -p ~/.config/age
@@ -348,8 +283,6 @@ fi
 # 阶段 2: 在线装 age 和 chezmoi
 install_age
 install_chezmoi
-install_nvim
-install_yazi
 
 # 阶段 3: 配置密钥 + 部署 dotfiles
 setup_age_key
