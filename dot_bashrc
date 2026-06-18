@@ -248,15 +248,15 @@ czsync() {
     if [ -f "$HOME/.bashrc" ]; then chezmoi add "$HOME/.bashrc"; fi
 
     # 兜底: 扫所有 chezmoi 已管理的文件, 重新 add 检测到的所有变更
-    # 用 --path-style absolute 拿绝对路径, 跳过目录和 SSH 私钥
     while IFS= read -r managed_path; do
         [ -n "$managed_path" ] || continue
         [ -f "$managed_path" ] || continue           # 跳过目录
         case "$managed_path" in
             */.ssh/id_*) continue ;;                  # 跳过 SSH 私钥
+            *.age) continue ;;                        # 跳过 age 加密文件
         esac
         chezmoi add "$managed_path" 2>/dev/null || true
-    done < <(chezmoi managed --path-style absolute 2>/dev/null)
+    done < <(chezmoi managed --path-style absolute --exclude=encrypted 2>/dev/null)
 
     # 3. 检查是否有变更需要提交
     if [ -n "$(chezmoi git -- status --porcelain)" ]; then

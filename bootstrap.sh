@@ -179,8 +179,9 @@ apply_dotfiles() {
     fi
 
     # 强制覆写 chezmoi.toml
-    # 关键: 必须写 [source] dir, 否则上面 --source 设置会被覆写冲掉
-    step "写 chezmoi.toml (含 [source] dir 持久化源路径)"
+    # 关键: 用顶层点键 source.dir (不是 [source] 表) — 后者 chezmoi 不一定识别
+    # 同时 apply 步骤显式传 --source 双保险, 避免 toml 不生效时还去找默认 ~/.local/share/chezmoi
+    step "写 chezmoi.toml (含 source.dir 持久化源路径)"
     mkdir -p ~/.config/chezmoi
     cat << EOF > ~/.config/chezmoi/chezmoi.toml
 encryption = "age"
@@ -189,12 +190,11 @@ encryption = "age"
     identity = "${HOME}/.config/age/key.txt"
     recipient = "age126732mgceh7cdfevzdv6tg63h00y2tmk2gza7dwvfu0jaa930aqs4lrln3"
 
-[source]
-    dir = "${SCRIPT_DIR}"
+source.dir = "${SCRIPT_DIR}"
 EOF
 
-    step "chezmoi apply..."
-    chezmoi apply -v
+    step "chezmoi apply --source=\$SCRIPT_DIR (双保险)..."
+    chezmoi apply --source="$SCRIPT_DIR" -v
 }
 
 # ---- 入口 ----

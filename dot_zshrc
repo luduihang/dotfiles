@@ -89,13 +89,16 @@ czsync() {
     if [ -f "$HOME/.zshrc" ]; then chezmoi add "$HOME/.zshrc"; fi
     if [ -f "$HOME/.bashrc" ]; then chezmoi add "$HOME/.bashrc"; fi
 
-    # 兜底：扫所有 chezmoi 已管理的文件, 重新 add 检测到的所有变更
-    # 这样 ~/.ssh/config, ~/.gitconfig 等任何 managed 文件改了都会被自动捡到
-    while IFS= read -r managed_file; do
-        [ -n "$managed_file" ] || continue
-        [ -f "$managed_file" ] || continue
-        chezmoi add "$managed_file" 2>/dev/null || true
-    done < <(chezmoi managed 2>/dev/null)
+    # 兜底: 扫所有 chezmoi 已管理的文件, 重新 add 检测到的所有变更
+    while IFS= read -r managed_path; do
+        [ -n "$managed_path" ] || continue
+        [ -f "$managed_path" ] || continue           # 跳过目录
+        case "$managed_path" in
+            */.ssh/id_*) continue ;;                  # 跳过 SSH 私钥
+            *.age) continue ;;                        # 跳过 age 加密文件 (每次 add 重加密会假 diff)
+        esac
+        chezmoi add "$managed_path" 2>/dev/null || true
+    done < <(chezmoi managed --path-style absolute --exclude=encrypted 2>/dev/null)
 
     # 4. 检查是否有变更需要提交
     if [ -n "$(chezmoi git -- status --porcelain)" ]; then
