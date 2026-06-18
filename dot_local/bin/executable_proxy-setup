@@ -22,10 +22,86 @@ warn()  { echo -e "${YELLOW}[WARN]${NC}  $*"; }
 err()   { echo -e "${RED}[ERR]${NC}   $*"; }
 step()  { echo -e "${CYAN}[STEP]${NC} $*"; }
 
+# ---- 解析参数 ----
+OFFLINE=0
+for arg in "$@"; do
+    case "$arg" in
+        --offline) OFFLINE=1 ;;
+        -h|--help)
+            sed -n '2,5p' "$0"
+            echo ""
+            echo "用法: proxy-setup [--offline]"
+            echo "  --offline  强制从本地 bin/mihomo-{os}-{arch} 安装，不联网下载"
+            exit 0
+            ;;
+        *) warn "未知参数: $arg (忽略, 试试 --help)" ;;
+    esac
+done
+
+# ---- 检测 SCRIPT_DIR (chezmoi 源目录) ----
+detect_script_dir() {
+    local me="${BASH_SOURCE[0]:-$0}"
+    local dir
+    dir="$(cd "$(dirname "$me")" && pwd)"
+    # 部署后: ~/.local/bin/proxy-setup → 源在 ~/.local/share/chezmoi
+    # 开发态: 在源内 dot_local/bin/executable_proxy-setup → 源是 ../..
+    if [[ "$dir" == */.local/bin ]]; then
+        echo "$HOME/.local/share/chezmoi"
+    else
+        (cd "$dir/../.." && pwd)
+    fi
+}
+SCRIPT_DIR="${SCRIPT_DIR:-$(detect_script_dir)}"
+
+# ---- 检测 os/arch ----
+detect_os() { uname -s | tr A-Z a-z; }
+detect_arch() { uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/'; }
+OS=$(detect_os)
+ARCH=$(detect_arch)
+
+# ---- 拼 bin/{name}-{os}-{arch} 路径 ----
+# 用法: local_bin mihomo
+#       local_bin chezmoi darwin arm64
+local_bin() {
+    local name="$1" os="${2:-$OS}" arch="${3:-$ARCH}"
+    echo "$SCRIPT_DIR/bin/${name}-${os}-${arch}"
+}
+
+# ---------- 从本地 bin/ 拷 mihomo (offline) ----------
+install_mihomo_binary() {
+    local src
+    src=$(local_bin mihomo)
+    if [ ! -f "$src" ]; then
+        err "离线模式但 $src 不存在，请确认 bin/ 下已放离线包"
+        return 1
+    fi
+    step "[offline] 从 $src 安装 mihomo → $MIHOMO_BIN"
+    mkdir -p "$MIHOMO_DIR"
+    install -m 0755 "$src" "$MIHOMO_BIN"
+    info "mihomo 离线安装完成: $MIHOMO_BIN ($($MIHOMO_BIN --version 2>&1 | head -1))"
+}
+
 # ---------- 下载 mihomo ----------
 install_mihomo() {
     if [ -x "$MIHOMO_BIN" ]; then
         info "mihomo 已存在: $MIHOMO_BIN ($($MIHOMO_BIN --version 2>/dev/null || echo unknown))"
+        return 0
+    fi
+
+    # 离线模式: 强制从 bin/ 拷
+    if [ "$OFFLINE" = 1 ]; then
+        install_mihomo_binary || return 1
+        return 0
+    fi
+
+    # 在线模式: 优先看 bin/ 里有没本地缓存, 有就跳过下载
+    local local_src
+    local_src=$(local_bin mihomo 2>/dev/null || true)
+    if [ -n "$local_src" ] && [ -f "$local_src" ]; then
+        step "发现本地缓存 $local_src, 跳过下载直接安装"
+        mkdir -p "$MIHOMO_DIR"
+        install -m 0755 "$local_src" "$MIHOMO_BIN"
+        info "mihomo 离线安装完成: $MIHOMO_BIN ($($MIHOMO_BIN --version 2>&1 | head -1))"
         return 0
     fi
 
@@ -165,6 +241,7 @@ main() {
     echo "╔══════════════════════════════════════════╗"
     echo "║   mihomo 代理一键部署脚本                  ║"
     echo "║   chezmoi dotfiles 集成                   ║"
+    [ "$OFFLINE" = 1 ] && echo "║   模式: 离线 (使用本地 bin/)              ║"
     echo "╚══════════════════════════════════════════╝"
     echo ""
 

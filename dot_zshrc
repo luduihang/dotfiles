@@ -77,19 +77,26 @@ czsync() {
     local current_time
     current_time=$(date "+%Y-%m-%d_%H:%M:%S")
 
-    echo "🚀 [Chezmoi] 正在识别原位修改，自动 smart add..."
-    # --smart 会自动识别被修改的受管文件，跳过未管理文件
-    chezmoi add --smart
-    
-    # 2. 检查 chezmoi 内部是否有文件变更（暂存区或工作区）
-    # 使用 git status --porcelain 是目前最快、最不依赖终端终端高亮的判断方式
+    # 2. 先拉取远端更新（rebase + autostash 处理本地未提交改动）
+    echo "🔄 [Chezmoi] 正在拉取远端更新 (rebase + autostash)..."
+    if ! chezmoi git -- pull --rebase --autostash; then
+        echo "❌ [Chezmoi] 拉取失败，请检查网络/SSH Key/冲突。"
+        return 1
+    fi
+
+    # 3. 显式 add 跨平台基础配置文件（不依赖 chezmoi 智能识别）
+    echo "🚀 [Chezmoi] 正在识别原位修改..."
+    if [ -f "$HOME/.zshrc" ]; then chezmoi add "$HOME/.zshrc"; fi
+    if [ -f "$HOME/.bashrc" ]; then chezmoi add "$HOME/.bashrc"; fi
+    # 兜底：让 chezmoi 扫其他已被管理但有变动的文件
+    chezmoi add --auto-bool=false 2>/dev/null || true
+
+    # 4. 检查是否有变更需要提交
     if [ -n "$(chezmoi git -- status --porcelain)" ]; then
         echo "📝 [Chezmoi] 检测到配置变更，正在自动提交..."
-        
-        # 顺畅执行 git 流水线，age 会在后台静默处理加密文件
         chezmoi git -- add .
         chezmoi git -- commit -m "auto sync: ${current_time}"
-        
+
         echo "📤 [Chezmoi] 正在推送到远端 GitHub 仓库..."
         if chezmoi git -- push; then
             echo "✅ [Chezmoi] 跨平台同步成功！"
