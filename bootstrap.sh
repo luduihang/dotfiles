@@ -3,13 +3,13 @@
 #  开荒引导脚本 — 先搭代理，再在线装 age + chezmoi + dotfiles
 #
 #  用法:
-#    在线首次 (一行命令):
+#    一行命令:
 #      bash -c "$(curl -fsSL https://raw.githubusercontent.com/luduihang/dotfiles/main/bootstrap.sh)"
 #
-#    离线 (已 clone 过仓库, bin/ 里有 mihomo):
+#    本地:
 #      bash bootstrap.sh
 #
-#  原理: 新机器唯一需要离线的是 mihomo 内核 + 明文 config。
+#  原理: 新机器唯一离线依赖是 mihomo 内核 + 明文 config (放 bin/)。
 #        代理一通，age/chezmoi 都能在线装。
 # ============================================================
 
@@ -24,6 +24,15 @@ DOTFILES_REPO="luduihang/dotfiles"
 step()  { echo -e "${GREEN}==>${NC} $*"; }
 warn()  { echo -e "${YELLOW}⚠${NC}  $*"; }
 error() { echo -e "${RED}✗${NC} $*"; exit 1; }
+info()  { echo -e "   $*"; }
+
+# ---- 解析参数 ----
+for arg in "$@"; do
+    case "$arg" in
+        -h|--help) sed -n '2,14p' "$0"; exit 0 ;;
+        *) error "未知参数: $arg (--help 查看用法)" ;;
+    esac
+done
 
 # ---- 检测系统 ----
 detect_os() {
@@ -74,7 +83,7 @@ install_mihomo() {
         mkdir -p "$MIHOMO_DIR"
         install -m 0755 "$local_src" "$MIHOMO_BIN"
     else
-        step "下载 mihomo (通过母鸡/代理)..."
+        step "下载 mihomo..."
         local url="https://github.com/MetaCubeX/mihomo/releases/download/v1.19.6/mihomo-${OS}-${ARCH}-v1.19.6.gz"
         mkdir -p "$MIHOMO_DIR"
         curl -fSL --progress-bar -o "${MIHOMO_BIN}.gz" "$url" || \
@@ -100,7 +109,7 @@ copy_mihomo_config() {
     chmod 600 "$MIHOMO_CONFIG_DST"
 }
 
-# ---- 检测桌面环境 (有 GUI 就不启动 mihomo 内核，避免和 Clash Verge 冲突) ----
+# ---- 检测桌面环境 ----
 has_desktop() {
     [ -n "${DISPLAY:-}" ] || [ -n "${WAYLAND_DISPLAY:-}" ]
 }
@@ -140,7 +149,7 @@ check_proxy() {
     fi
 }
 
-# ---- 安装 age (纯在线) ----
+# ---- 安装 age ----
 install_age() {
     if command -v age &>/dev/null; then
         step "age 已安装 ($(age --version 2>&1 | head -1))"
@@ -164,7 +173,7 @@ install_age() {
     command -v age &>/dev/null || error "age 安装失败"
 }
 
-# ---- 安装 chezmoi (纯在线) ----
+# ---- 安装 chezmoi ----
 install_chezmoi() {
     if command -v chezmoi &>/dev/null; then
         step "chezmoi 已安装 ($(chezmoi --version 2>&1 | head -1))"
@@ -200,44 +209,29 @@ setup_age_key() {
     step "密钥已写入 ~/.config/age/key.txt"
 }
 
-# ---- 写 ~/.config/chezmoi/chezmoi.toml (固化 source.dir, 一劳永逸) ----
-# 关键: 不管 dotfiles clone 到哪里, 写完后 chezmoi apply 不再需要 --source
-write_chezmoi_toml() {
-    step "写 chezmoi.toml (固化 source.dir = $SCRIPT_DIR)"
-    mkdir -p "$HOME/.config/chezmoi"
-    cat > "$HOME/.config/chezmoi/chezmoi.toml" << EOF
-encryption = "age"
-
-[age]
-    identity = "$HOME/.config/age/key.txt"
-    recipient = "age126732mgceh7cdfevzdv6tg63h00y2tmk2gza7dwvfu0jaa930aqs4lrln3"
-
-source.dir = "$SCRIPT_DIR"
-EOF
-    info "chezmoi.toml 已写入 -> 以后 'chezmoi apply' 无需 --source"
-}
-
 # ---- 初始化并应用 dotfiles ----
 apply_dotfiles() {
-    if [ -d ~/.local/share/chezmoi/.git ]; then
-        step "chezmoi 仓库已存在，跳过 init..."
+    # 始终执行 chezmoi init 以从 .chezmoi.toml.tmpl 重新生成配置
+    # .chezmoi.toml.tmpl 已包含 source.dir = "{{ .chezmoi.sourceDir }}"
+    if [ "$SCRIPT_DIR" != "$HOME/.local/share/chezmoi" ]; then
+        step "chezmoi init --source=$SCRIPT_DIR"
+        chezmoi init --source="$SCRIPT_DIR"
+    elif [ -d ~/.local/share/chezmoi/.git ]; then
+        step "chezmoi init (刷新配置, 仓库已存在)"
+        chezmoi init 2>/dev/null || chezmoi init --source="$SCRIPT_DIR"
     else
-        # 如果 SCRIPT_DIR 和默认路径不同，用 SCRIPT_DIR
-        if [ "$SCRIPT_DIR" != "$HOME/.local/share/chezmoi" ]; then
-            step "chezmoi init --source=$SCRIPT_DIR"
-            chezmoi init --source="$SCRIPT_DIR"
-        else
-            step "chezmoi init $DOTFILES_REPO (从远端 clone)"
-            chezmoi init "$DOTFILES_REPO"
-        fi
+        step "chezmoi init $DOTFILES_REPO (从远端 clone)"
+        chezmoi init "$DOTFILES_REPO"
     fi
 
-    # 无论 init 时用了 --source 还是从默认路径, 都把 source.dir 写进 toml
-    # 这样后续 'chezmoi apply' (无 --source) 也能找到源
-    write_chezmoi_toml
+    # 安全网: 确保 toml 有 source.dir (模板已有, 此处以防旧模板未更新)
+    if ! grep -q 'source\.dir' "$HOME/.config/chezmoi/chezmoi.toml" 2>/dev/null; then
+        step "补写 source.dir 到 chezmoi.toml (安全网)"
+        echo "source.dir = \"$SCRIPT_DIR\"" >> "$HOME/.config/chezmoi/chezmoi.toml"
+    fi
 
     step "chezmoi apply..."
-    # 现在 toml 里已有 source.dir, 直接 apply 即可, 无需 --source
+    mkdir -p "$HOME/.local/share/chezmoi"
     chezmoi apply -v
 }
 
@@ -249,7 +243,7 @@ echo "  ║  OS : $(uname -s) ($(uname -m))                         ║"
 echo "  ╚══════════════════════════════════════════╝"
 echo ""
 
-# 阶段 1: 搭代理 (唯一需要离线包的部分)
+# 阶段 1: 搭代理
 install_mihomo
 copy_mihomo_config
 
@@ -261,7 +255,7 @@ else
     check_proxy
 fi
 
-# 阶段 2: 代理通了，在线装 age 和 chezmoi
+# 阶段 2: 在线装 age 和 chezmoi
 install_age
 install_chezmoi
 
@@ -272,7 +266,7 @@ apply_dotfiles
 echo ""
 echo "  ████████████████████████████████████████████"
 echo "  ▎  开荒完成！                              ▎"
-echo "  ▎  下次同步只需: czsync                    ▎"
+echo "  ▎  下次同步只需: csz                       ▎"
 echo "  ▎  切换模型:      cc-switch deepseek       ▎"
 echo "  ████████████████████████████████████████████"
 echo ""
