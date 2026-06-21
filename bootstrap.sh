@@ -116,13 +116,18 @@ has_desktop() {
 
 # ---- 启动 mihomo ----
 start_mihomo() {
+    # 先检查 PID 文件
     if [ -f "$MIHOMO_PID_FILE" ] && kill -0 "$(cat "$MIHOMO_PID_FILE")" 2>/dev/null; then
         step "mihomo 已在运行 (PID: $(cat "$MIHOMO_PID_FILE"))"
         return 0
     fi
 
-    pkill -f "mihomo" 2>/dev/null || true
-    sleep 0.5
+    # PID 文件不可靠时用 pgrep 兜底（避免误杀已有代理）
+    if pgrep -f "mihomo" >/dev/null 2>&1; then
+        step "mihomo 已在运行 (pgrep 检测)"
+        pgrep -f "mihomo" | head -1 > "$MIHOMO_PID_FILE"
+        return 0
+    fi
 
     step "启动 mihomo (mixed-port: 7897)..."
     nohup "$MIHOMO_BIN" -f "$MIHOMO_CONFIG_DST" > "$MIHOMO_LOG_FILE" 2>&1 &
