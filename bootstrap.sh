@@ -298,8 +298,8 @@ install_zoxide() {
             if command -v dnf &>/dev/null; then
                 sudo dnf install -y zoxide 2>/dev/null && return
             fi
-            # 包管理器没有 → 从 GitHub release 下载预编译二进制
-            step "下载 zoxide 预编译包..."
+            # 包管理器都没有 (或装失败) → 从 GitHub release 下载预编译二进制
+            warn "包管理器未安装 zoxide, 改从 GitHub release 下载"
             local target url tmpdir
             case "$ARCH" in
                 amd64) target="x86_64-unknown-linux-musl" ;;
@@ -312,11 +312,19 @@ install_zoxide() {
                 || error "zoxide 下载失败: $url"
             tar -xzf "$tmpdir/zoxide.tar.gz" -C "$tmpdir"
             mkdir -p "$HOME/.local/bin"
-            install -m 0755 "$tmpdir/zoxide" "$HOME/.local/bin/zoxide"
+            install -m 0755 "$tmpdir/zoxide" "$HOME/.local/bin/zoxide" || error "zoxide 拷贝失败"
+            # 确保 ~/.local/bin 在 PATH (脚本临时会话里加一下)
+            export PATH="$HOME/.local/bin:$PATH"
+            step "zoxide 已安装到 $HOME/.local/bin/zoxide (PATH 已更新)"
             rm -rf "$tmpdir"
             ;;
     esac
-    command -v zoxide &>/dev/null || error "zoxide 安装失败"
+    command -v zoxide &>/dev/null || {
+        # 调试: 看 zoxide 二进制到底在哪
+        ls -la "$HOME/.local/bin/zoxide" 2>&1
+        echo "PATH=$PATH"
+        error "zoxide 安装失败 (PATH 不含 ~/.local/bin?)"
+    }
 }
 
 # ---- 配置 age 密钥 ----

@@ -122,11 +122,16 @@ install_zoxide() {
                 || err "zoxide 下载失败: $url"
             tar -xzf "$tmpdir/zoxide.tar.gz" -C "$tmpdir"
             mkdir -p "$HOME/.local/bin"
-            install -m 0755 "$tmpdir/zoxide" "$HOME/.local/bin/zoxide"
+            install -m 0755 "$tmpdir/zoxide" "$HOME/.local/bin/zoxide" || err "zoxide 拷贝失败"
+            export PATH="$HOME/.local/bin:$PATH"
             rm -rf "$tmpdir"
             ;;
     esac
-    command -v zoxide &>/dev/null || err "zoxide 安装失败"
+    command -v zoxide &>/dev/null || {
+        ls -la "$HOME/.local/bin/zoxide" 2>&1
+        echo "PATH=$PATH"
+        err "zoxide 安装失败 (PATH 不含 ~/.local/bin?)"
+    }
 }
 
 # ── main ──
