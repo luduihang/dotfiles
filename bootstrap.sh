@@ -116,25 +116,24 @@ has_desktop() {
 
 # ---- 启动 mihomo ----
 start_mihomo() {
-    # 先检查 PID 文件
-    if [ -f "$MIHOMO_PID_FILE" ] && kill -0 "$(cat "$MIHOMO_PID_FILE")" 2>/dev/null; then
-        step "mihomo 已在运行 (PID: $(cat "$MIHOMO_PID_FILE"))"
+    # 端口在监听 = 真的在跑（比 pgrep 可靠，不会被僵尸进程骗）
+    if ss -tlnp 2>/dev/null | grep -q 7897 || netstat -tlnp 2>/dev/null | grep -q 7897; then
+        step "mihomo 已在运行 (端口 7897 监听中)"
+        pgrep -f "mihomo" | head -1 > "$MIHOMO_PID_FILE" 2>/dev/null || true
         return 0
     fi
 
-    # PID 文件不可靠时用 pgrep 兜底（避免误杀已有代理）
-    if pgrep -f "mihomo" >/dev/null 2>&1; then
-        step "mihomo 已在运行 (pgrep 检测)"
-        pgrep -f "mihomo" | head -1 > "$MIHOMO_PID_FILE"
-        return 0
-    fi
+    # 端口没监听，杀掉可能残留再重启
+    pkill -f "mihomo" 2>/dev/null || true
+    sleep 0.5
 
     step "启动 mihomo (mixed-port: 7897)..."
+    mkdir -p "$(dirname "$MIHOMO_LOG_FILE")"
     nohup "$MIHOMO_BIN" -f "$MIHOMO_CONFIG_DST" > "$MIHOMO_LOG_FILE" 2>&1 &
     local pid=$!
     echo "$pid" > "$MIHOMO_PID_FILE"
 
-    sleep 1
+    sleep 2
     if kill -0 "$pid" 2>/dev/null; then
         step "mihomo 启动成功 (PID: $pid)"
     else
