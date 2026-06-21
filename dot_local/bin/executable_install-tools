@@ -50,6 +50,8 @@ install_yazi() {
             fi
             # 包管理器没有 → 下载预编译二进制
             step "下载 yazi 预编译包..."
+            # 确保 unzip 存在
+            command -v unzip &>/dev/null || sudo apt-get install -y unzip 2>/dev/null || true
             local target url tmpdir
             case "$(uname -m)" in
                 x86_64)  target="x86_64-unknown-linux-gnu" ;;
