@@ -230,6 +230,21 @@ export PATH="$PATH:/home/kipley/.lmstudio/bin"
 
 export PATH="$HOME/.local/bin:$HOME/bin:$PATH"
 
+# yazi 退出后自动 cd 到最后浏览的目录（Yazi 官方推荐写法）
+function y() {
+	local tmp="$(mktemp -t "yazi-cwd.XXXXXX")" cwd
+	command yazi "$@" --cwd-file="$tmp"
+	if cwd="$(command cat -- "$tmp" 2>/dev/null)" && [ -n "$cwd" ] && [ "$cwd" != "$PWD" ]; then
+		builtin cd -- "$cwd"
+	fi
+	rm -f -- "$tmp"
+}
+
+# zoxide 智能目录跳转（按 z <keyword> 直达常去目录）
+if command -v zoxide &>/dev/null; then
+	eval "$(zoxide init bash)"
+fi
+
 # chezmoi 跨平台一键无脑同步函数
 czsync() {
     local current_time
@@ -243,9 +258,9 @@ czsync() {
     fi
 
     # 2. 显式 add 跨平台基础配置文件
+    # 注意: dot_bashrc / dot_zshrc 是 source of truth, 不应从 ~/ 拉回来
+    # (linter / 第三方工具可能修改本地版本, 反向 add 会污染源)
     echo "🚀 [Chezmoi] 正在识别原位修改..."
-    if [ -f "$HOME/.zshrc" ]; then chezmoi add "$HOME/.zshrc"; fi
-    if [ -f "$HOME/.bashrc" ]; then chezmoi add "$HOME/.bashrc"; fi
 
     # 兜底: 扫所有 chezmoi 已管理的文件, 重新 add 检测到的所有变更
     while IFS= read -r managed_path; do

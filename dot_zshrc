@@ -100,9 +100,9 @@ czsync() {
     fi
 
     # 3. 显式 add 跨平台基础配置文件（不依赖 chezmoi 智能识别）
+    # 注意: dot_bashrc / dot_zshrc 是 source of truth, 不应从 ~/ 拉回来
+    # (linter / 第三方工具可能修改本地版本, 反向 add 会污染源)
     echo "🚀 [Chezmoi] 正在识别原位修改..."
-    if [ -f "$HOME/.zshrc" ]; then chezmoi add "$HOME/.zshrc"; fi
-    if [ -f "$HOME/.bashrc" ]; then chezmoi add "$HOME/.bashrc"; fi
 
     # 兜底: 扫所有 chezmoi 已管理的文件, 重新 add 检测到的所有变更
     while IFS= read -r managed_path; do
