@@ -1,0 +1,21 @@
+# yazi 键位 — 让回车更直觉 + 一键优雅退出
+
+[[manager.prepend_keymap]]
+on   = [ "<Enter>" ]
+run  = "open"
+desc = "Open file or enter directory"
+
+[[manager.prepend_keymap]]
+on   = [ "Q" ]
+run  = "quit"
+desc = "Quit Yazi (大写 Q 避免与默认 q 冲突)"
+
+[[manager.prepend_keymap]]
+on   = [ "<C-h>" ]
+run  = "back"
+desc = "Back to parent directory"
+
+[[manager.prepend_keymap]]
+on   = [ "<C-l>" ]
+run  = "forward"
+desc = "Forward to child directory"
