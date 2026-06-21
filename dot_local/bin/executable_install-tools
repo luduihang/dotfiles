@@ -10,6 +10,16 @@ err()   { echo -e "${RED}✗${NC}  $*"; exit 1; }
 
 OS=$(uname -s | tr '[:upper:]' '[:lower:]')
 
+# 精简系统可能缺基础工具
+ensure_base() {
+    [ "$OS" = "darwin" ] && return
+    for tool in curl unzip sudo; do
+        command -v "$tool" &>/dev/null && continue
+        apt-get update -y 2>/dev/null
+        apt-get install -y "$tool" 2>/dev/null || true
+    done
+}
+
 install_nvim() {
     if command -v nvim &>/dev/null; then
         step "nvim 已安装 ($(nvim --version 2>&1 | head -1))"
@@ -78,6 +88,7 @@ echo "  ║   nvim + yazi 一键安装      ║"
 echo "  ╚══════════════════════════════╝"
 echo ""
 
+ensure_base
 install_nvim
 install_yazi
 

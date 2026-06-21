@@ -62,6 +62,17 @@ detect_script_dir() {
 }
 SCRIPT_DIR="${SCRIPT_DIR:-$(detect_script_dir)}"
 
+# ---- 确保基础工具 (精简系统可能缺 curl/unzip/sudo) ----
+ensure_base() {
+    # 只 Linux 需要补这些
+    [ "$OS" = "darwin" ] && return
+    for tool in curl unzip sudo; do
+        command -v "$tool" &>/dev/null && continue
+        apt-get update -y 2>/dev/null
+        apt-get install -y "$tool" 2>/dev/null || true
+    done
+}
+
 # ---- mihomo 路径 ----
 MIHOMO_DIR="$HOME/.local/bin"
 MIHOMO_BIN="$MIHOMO_DIR/mihomo"
@@ -332,6 +343,8 @@ apply_dotfiles() {
 }
 
 # ---- 入口 ----
+ensure_base
+
 echo ""
 echo "  ╔══════════════════════════════════════════╗"
 echo "  ║       Dotfiles 开荒引导脚本              ║"
