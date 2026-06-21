@@ -259,7 +259,7 @@ install_yazi() {
             esac
             url="https://github.com/sxyazi/yazi/releases/download/v26.5.6/yazi-${target}.zip"
             tmpdir=$(mktemp -d)
-            curl -fSL --max-time 60 -o "$tmpdir/yazi.zip" "$url" || error "yazi 下载失败: $url"
+            curl -fSL --max-time 120 --proxy "http://127.0.0.1:7897" -o "$tmpdir/yazi.zip" "$url" || error "yazi 下载失败: $url"
             unzip -qo "$tmpdir/yazi.zip" -d "$tmpdir"
             install -m 0755 "$tmpdir/yazi-${target}/yazi" "$HOME/.local/bin/yazi"
             install -m 0755 "$tmpdir/yazi-${target}/ya" "$HOME/.local/bin/ya"
@@ -362,6 +362,8 @@ if has_desktop; then
 else
     start_mihomo
     check_proxy
+    # 代理通了，设全局环境变量，后续 curl/wget 自动走代理
+    export http_proxy="http://127.0.0.1:7897" https_proxy="http://127.0.0.1:7897" all_proxy="http://127.0.0.1:7897"
 fi
 
 # 阶段 2: 在线装 age、chezmoi 和日常工具

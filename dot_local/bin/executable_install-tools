@@ -70,7 +70,7 @@ install_yazi() {
             esac
             url="https://github.com/sxyazi/yazi/releases/download/v26.5.6/yazi-${target}.zip"
             tmpdir=$(mktemp -d)
-            curl -fSL --max-time 60 -o "$tmpdir/yazi.zip" "$url" || err "yazi 下载失败: $url"
+            curl -fSL --max-time 120 --proxy "http://127.0.0.1:7897" -o "$tmpdir/yazi.zip" "$url" || err "yazi 下载失败: $url"
             unzip -qo "$tmpdir/yazi.zip" -d "$tmpdir"
             install -m 0755 "$tmpdir/yazi-${target}/yazi" "$HOME/.local/bin/yazi"
             install -m 0755 "$tmpdir/yazi-${target}/ya" "$HOME/.local/bin/ya"
