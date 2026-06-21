@@ -247,10 +247,8 @@ install_yazi() {
             if command -v apt-get &>/dev/null; then
                 sudo apt-get update -y && sudo apt-get install -y yazi 2>/dev/null && return
             fi
-            # 包管理器没有 → 下载预编译二进制
+            # 包管理器没有 → 下载 .deb 或预编译包
             step "下载 yazi 预编译包..."
-            # 确保 unzip 存在
-            command -v unzip &>/dev/null || sudo apt-get install -y unzip 2>/dev/null || true
             local target url tmpdir
             case "$ARCH" in
                 amd64) target="x86_64-unknown-linux-gnu" ;;
@@ -258,9 +256,21 @@ install_yazi() {
                 *) error "不支持的架构: $ARCH" ;;
             esac
             url="https://github.com/sxyazi/yazi/releases/download/v26.5.6/yazi-${target}.zip"
+            # 优先用 .deb (如果有 dpkg)
+            if command -v dpkg &>/dev/null; then
+                local deb_url="https://github.com/sxyazi/yazi/releases/download/v26.5.6/yazi-${target}.deb"
+                tmpdir=$(mktemp -d)
+                curl -fSL --max-time 120 --proxy "http://127.0.0.1:7897" -o "$tmpdir/yazi.deb" "$deb_url" 2>/dev/null && {
+                    sudo dpkg -i "$tmpdir/yazi.deb" 2>/dev/null && { rm -rf "$tmpdir"; return; }
+                }
+                rm -rf "$tmpdir"
+            fi
+            # 回退: .zip 解压安装
+            command -v unzip &>/dev/null || sudo apt-get install -y unzip 2>/dev/null || true
             tmpdir=$(mktemp -d)
             curl -fSL --max-time 120 --proxy "http://127.0.0.1:7897" -o "$tmpdir/yazi.zip" "$url" || error "yazi 下载失败: $url"
             unzip -qo "$tmpdir/yazi.zip" -d "$tmpdir"
+            mkdir -p "$HOME/.local/bin"
             install -m 0755 "$tmpdir/yazi-${target}/yazi" "$HOME/.local/bin/yazi"
             install -m 0755 "$tmpdir/yazi-${target}/ya" "$HOME/.local/bin/ya"
             rm -rf "$tmpdir"
