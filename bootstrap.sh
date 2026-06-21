@@ -279,6 +279,46 @@ install_yazi() {
     command -v yazi &>/dev/null || error "yazi 安装失败"
 }
 
+# ---- 安装 zoxide (智能目录跳转) ----
+install_zoxide() {
+    if command -v zoxide &>/dev/null; then
+        step "zoxide 已安装 ($(zoxide --version 2>&1))"
+        return
+    fi
+    step "安装 zoxide..."
+    case "$OS" in
+        darwin) brew install zoxide 2>/dev/null || error "brew install zoxide 失败" ;;
+        linux)
+            if command -v pacman &>/dev/null; then
+                sudo pacman -S --noconfirm zoxide && return
+            fi
+            if command -v apt-get &>/dev/null; then
+                sudo apt-get update -y && sudo apt-get install -y zoxide 2>/dev/null && return
+            fi
+            if command -v dnf &>/dev/null; then
+                sudo dnf install -y zoxide 2>/dev/null && return
+            fi
+            # 包管理器没有 → 从 GitHub release 下载预编译二进制
+            step "下载 zoxide 预编译包..."
+            local target url tmpdir
+            case "$ARCH" in
+                amd64) target="x86_64-unknown-linux-musl" ;;
+                arm64) target="aarch64-unknown-linux-musl" ;;
+                *) error "不支持的架构: $ARCH" ;;
+            esac
+            url="https://github.com/ajeetdsouza/zoxide/releases/download/v0.9.9/zoxide-${target}.tar.gz"
+            tmpdir=$(mktemp -d)
+            curl -fSL --max-time 60 --proxy "http://127.0.0.1:7897" -o "$tmpdir/zoxide.tar.gz" "$url" \
+                || error "zoxide 下载失败: $url"
+            tar -xzf "$tmpdir/zoxide.tar.gz" -C "$tmpdir"
+            mkdir -p "$HOME/.local/bin"
+            install -m 0755 "$tmpdir/zoxide" "$HOME/.local/bin/zoxide"
+            rm -rf "$tmpdir"
+            ;;
+    esac
+    command -v zoxide &>/dev/null || error "zoxide 安装失败"
+}
+
 # ---- 配置 age 密钥 ----
 setup_age_key() {
     mkdir -p ~/.config/age
