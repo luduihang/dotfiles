@@ -81,6 +81,11 @@ function y() {
 	rm -f -- "$tmp"
 }
 
+# zoxide 智能目录跳转（按 z <keyword> 直达常去目录）
+if command -v zoxide &>/dev/null; then
+	eval "$(zoxide init zsh)"
+fi
+
 # chezmoi 跨平台一键无脑同步函数（完美兼容 Mac & Linux）
 czsync() {
     # 1. 跨平台安全时间戳（避开 BSD/GNU date 差异）
