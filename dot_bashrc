@@ -245,50 +245,70 @@ if command -v zoxide &>/dev/null; then
 	eval "$(zoxide init bash)"
 fi
 
-# chezmoi 跨平台一键无脑同步函数
-czsync() {
+# chezmoi 三段式同步函数 (语义严格对应 git push/pull/apply)
+#
+# 源目录: ~/.local/share/chezmoi  ←  source of truth
+# 远端:   github.com/luduihang/dotfiles
+# 真实环境: ~/  (bashrc, zshrc, yazi 配置等)
+#
+# czpush  — 把本地 ~/ 改动 → 写入源 → commit → push (本地 → 云端)
+# czpull  — 把远端最新 → 写入源 (云端 → 本地源)
+# czapply — 把源里的内容 → 部署到 ~/  (源 → 真实环境)
+#
+# 注: ~/.bashrc / ~/.zshrc 是 source of truth, 不再从 ~/ 反向 add
+
+# czpush: 推送本地修改到远端 (类似 git push)
+czpush() {
     local current_time
     current_time=$(date "+%Y-%m-%d_%H:%M:%S")
 
-    # 1. 先拉取远端更新（rebase + autostash 处理本地未提交改动）
-    echo "🔄 [Chezmoi] 正在拉取远端更新 (rebase + autostash)..."
-    if ! chezmoi git -- pull --rebase --autostash; then
-        echo "❌ [Chezmoi] 拉取失败，请检查网络/SSH Key/冲突。"
-        return 1
-    fi
-
-    # 2. 显式 add 跨平台基础配置文件
-    # 注意: dot_bashrc / dot_zshrc 是 source of truth, 不应从 ~/ 拉回来
-    # (linter / 第三方工具可能修改本地版本, 反向 add 会污染源)
-    echo "🚀 [Chezmoi] 正在识别原位修改..."
-
-    # 兜底: 扫所有 chezmoi 已管理的文件, 重新 add 检测到的所有变更
+    # 1. 扫描本地 ~/ 改动, add 到 chezmoi 源
+    echo "🚀 [czpush] 正在识别本地修改..."
     while IFS= read -r managed_path; do
         [ -n "$managed_path" ] || continue
         [ -f "$managed_path" ] || continue           # 跳过目录
         case "$managed_path" in
             */.ssh/id_*) continue ;;                  # 跳过 SSH 私钥
-            *.age) continue ;;                        # 跳过 age 加密文件
+            *.age) continue ;;                        # 跳过 age 加密文件 (每次 add 重加密会假 diff)
             */bin/*) continue ;;                      # 跳过 bin/ 离线包
         esac
         chezmoi add "$managed_path" 2>/dev/null || true
     done < <(chezmoi managed --path-style absolute --exclude=encrypted 2>/dev/null)
 
-    # 3. 检查是否有变更需要提交
+    # 2. 检查源是否有变更需要提交
     if [ -n "$(chezmoi git -- status --porcelain)" ]; then
-        echo "📝 [Chezmoi] 检测到配置变更，正在自动提交..."
+        echo "📝 [czpush] 检测到配置变更, 正在提交..."
         chezmoi git -- add .
         chezmoi git -- commit -m "auto sync: ${current_time}"
 
-        echo "📤 [Chezmoi] 正在推送到远端 GitHub 仓库..."
+        echo "📤 [czpush] 正在推送到远端 GitHub 仓库..."
         if chezmoi git -- push; then
-            echo "✅ [Chezmoi] 跨平台同步成功！"
+            echo "✅ [czpush] 推送成功!"
         else
-            echo "❌ [Chezmoi] 推送失败，请检查网络或 SSH Key。"
+            echo "❌ [czpush] 推送失败, 请检查网络或 SSH Key"
+            return 1
         fi
     else
-        echo "✨ [Chezmoi] 没有检测到任何文件修改，无需同步。"
+        echo "✨ [czpush] 没有检测到任何文件修改, 无需推送"
     fi
+}
+
+# czpull: 从远端拉取最新配置到本地源 (类似 git pull)
+czpull() {
+    echo "🔄 [czpull] 正在从远端拉取最新配置..."
+    if chezmoi git -- pull --rebase --autostash; then
+        echo "✅ [czpull] 拉取成功! 跑 czapply 部署到本地"
+    else
+        echo "❌ [czpull] 拉取失败, 请检查网络/SSH Key/冲突"
+        return 1
+    fi
+}
+
+# czapply: 把源部署到 ~/ (类似 git apply)
+czapply() {
+    echo "📦 [czapply] 正在部署配置到 ~/..."
+    chezmoi apply -v
+    echo "✅ [czapply] 部署完成! 部分变更需要重启 shell 才生效 (exec \$SHELL)"
 }
 
 # >>> Fcitx 输入法（仅在有图形界面时生效）>>>
