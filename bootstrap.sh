@@ -143,14 +143,18 @@ start_mihomo() {
 
 # ---- 检查代理连通性 ----
 check_proxy() {
-    step "检测代理连通性..."
+    step "检测代理连通性 (VLess 握手约需 5-10 秒)..."
     local http_code
-    http_code=$(curl -s --max-time 5 -o /dev/null -w "%{http_code}" --proxy "http://127.0.0.1:7897" "http://www.google.com" 2>/dev/null || echo "000")
-    if [ "$http_code" = "200" ] || [ "$http_code" = "301" ] || [ "$http_code" = "302" ]; then
-        step "代理连通正常 (HTTP $http_code)"
-    else
-        warn "代理暂不可达 (HTTP $http_code)，继续尝试在线安装..."
-    fi
+    for i in 1 2 3; do
+        http_code=$(curl -s --max-time 5 -o /dev/null -w "%{http_code}" --proxy "http://127.0.0.1:7897" "http://www.google.com" 2>/dev/null)
+        http_code="${http_code:-000}"
+        if [ "$http_code" = "200" ] || [ "$http_code" = "301" ] || [ "$http_code" = "302" ]; then
+            step "代理连通正常 (HTTP $http_code, 第 ${i} 次尝试)"
+            return
+        fi
+        [ "$i" -lt 3 ] && sleep 3
+    done
+    warn "代理暂不可达 (HTTP $http_code)，继续尝试在线安装..."
 }
 
 # ---- 安装 age ----
