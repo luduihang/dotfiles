@@ -111,19 +111,19 @@ copy_mihomo_config() {
 
 # ---- 检测桌面环境 ----
 has_desktop() {
+    [ -f /.dockerenv ] && return 1   # 容器不算桌面
     [ -n "${DISPLAY:-}" ] || [ -n "${WAYLAND_DISPLAY:-}" ]
 }
 
 # ---- 启动 mihomo ----
 start_mihomo() {
-    # 端口在监听 = 真的在跑（比 pgrep 可靠，不会被僵尸进程骗）
-    if ss -tlnp 2>/dev/null | grep -q 7897 || netstat -tlnp 2>/dev/null | grep -q 7897; then
-        step "mihomo 已在运行 (端口 7897 监听中)"
-        pgrep -f "mihomo" | head -1 > "$MIHOMO_PID_FILE" 2>/dev/null || true
+    # 直接 curl 测端口，不依赖 ss/netstat/lsof（精简 Docker 镜像都没有）
+    if curl -s --max-time 1 -o /dev/null --proxy "http://127.0.0.1:7897" "http://127.0.0.1:7897" 2>/dev/null; then
+        step "mihomo 已在运行 (端口 7897 可连通)"
         return 0
     fi
 
-    # 端口没监听，杀掉可能残留再重启
+    # 端口不通，清理残留后重启
     pkill -f "mihomo" 2>/dev/null || true
     sleep 0.5
 
