@@ -1,0 +1,18 @@
+# yazi 极简配置 — 只覆盖与默认值不同的部分
+
+[manager]
+editor = "nvim"
+sort_by         = "alphabetical"
+sort_dir_first   = true
+show_hidden      = true
+
+[opener]
+edit = [
+    { run = 'nvim "$@"', block = true, for = "unix" },
+]
+
+[preview]
+max_width   = 800
+max_height  = 600
+image_filter  = "kitty"
+image_quality = 75

@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
-# install-tools — 在线安装 nvim
+# install-tools — 在线安装 nvim + yazi
 # 部署路径: ~/.local/bin/install-tools
 set -euo pipefail
 
-GREEN='\033[0;32m'; RED='\033[0;31m'; NC='\033[0m'
+GREEN='\033[0;32m'; RED='\033[0;31m'; YELLOW='\033[1;33m'; NC='\033[0m'
 step()  { echo -e "${GREEN}==>${NC} $*"; }
+warn()  { echo -e "${YELLOW}⚠${NC}  $*"; }
 err()   { echo -e "${RED}✗${NC}  $*"; exit 1; }
 
 OS=$(uname -s | tr '[:upper:]' '[:lower:]')
@@ -32,16 +33,52 @@ install_nvim() {
     command -v nvim &>/dev/null || err "nvim 安装失败"
 }
 
+install_yazi() {
+    if command -v yazi &>/dev/null; then
+        step "yazi 已安装 ($(yazi --version 2>&1))"
+        return
+    fi
+    step "安装 yazi..."
+    case "$OS" in
+        darwin) brew install yazi ;;
+        linux)
+            if command -v pacman &>/dev/null; then
+                sudo pacman -S --noconfirm yazi && return
+            fi
+            if command -v apt-get &>/dev/null; then
+                sudo apt-get update -y && sudo apt-get install -y yazi 2>/dev/null && return
+            fi
+            # 包管理器没有 → 下载预编译二进制
+            step "下载 yazi 预编译包..."
+            local target url tmpdir
+            case "$(uname -m)" in
+                x86_64)  target="x86_64-unknown-linux-gnu" ;;
+                aarch64) target="aarch64-unknown-linux-gnu" ;;
+                *)       err "不支持的架构: $(uname -m)" ;;
+            esac
+            url="https://github.com/sxyazi/yazi/releases/download/v26.5.6/yazi-${target}.zip"
+            tmpdir=$(mktemp -d)
+            curl -fSL --max-time 60 -o "$tmpdir/yazi.zip" "$url" || err "yazi 下载失败: $url"
+            unzip -qo "$tmpdir/yazi.zip" -d "$tmpdir"
+            install -m 0755 "$tmpdir/yazi-${target}/yazi" "$HOME/.local/bin/yazi"
+            install -m 0755 "$tmpdir/yazi-${target}/ya" "$HOME/.local/bin/ya"
+            rm -rf "$tmpdir"
+            ;;
+    esac
+    command -v yazi &>/dev/null || err "yazi 安装失败"
+}
+
 # ── main ──
 echo ""
 echo "  ╔══════════════════════════════╗"
 echo "  ║   install-tools             ║"
-echo "  ║   nvim 一键安装             ║"
+echo "  ║   nvim + yazi 一键安装      ║"
 echo "  ╚══════════════════════════════╝"
 echo ""
 
 install_nvim
+install_yazi
 
 echo ""
-echo "  ✅ nvim 安装完成"
+echo "  ✅ nvim + yazi 安装完成"
 echo ""
