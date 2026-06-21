@@ -306,7 +306,7 @@ install_zoxide() {
                 arm64) target="aarch64-unknown-linux-musl" ;;
                 *) error "不支持的架构: $ARCH" ;;
             esac
-            url="https://github.com/ajeetdsouza/zoxide/releases/download/v0.9.9/zoxide-${target}.tar.gz"
+            url="https://github.com/ajeetdsouza/zoxide/releases/download/v0.9.9/zoxide-0.9.9-${target}.tar.gz"
             tmpdir=$(mktemp -d)
             curl -fSL --max-time 60 --proxy "http://127.0.0.1:7897" -o "$tmpdir/zoxide.tar.gz" "$url" \
                 || error "zoxide 下载失败: $url"
