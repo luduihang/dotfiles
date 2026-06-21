@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# install-tools — 在线安装 nvim + yazi
+# install-tools — 在线安装 nvim + yazi + zoxide
 # 部署路径: ~/.local/bin/install-tools
 set -euo pipefail
 
@@ -90,18 +90,58 @@ install_yazi() {
     command -v yazi &>/dev/null || err "yazi 安装失败"
 }
 
+install_zoxide() {
+    if command -v zoxide &>/dev/null; then
+        step "zoxide 已安装 ($(zoxide --version 2>&1))"
+        return
+    fi
+    step "安装 zoxide..."
+    case "$OS" in
+        darwin) brew install zoxide ;;
+        linux)
+            if command -v pacman &>/dev/null; then
+                sudo pacman -S --noconfirm zoxide && return
+            fi
+            if command -v apt-get &>/dev/null; then
+                sudo apt-get update -y && sudo apt-get install -y zoxide 2>/dev/null && return
+            fi
+            if command -v dnf &>/dev/null; then
+                sudo dnf install -y zoxide && return
+            fi
+            # 包管理器没有 → 下载 GitHub release
+            step "下载 zoxide 预编译包..."
+            local target url tmpdir
+            case "$(uname -m)" in
+                x86_64)  target="x86_64-unknown-linux-musl" ;;
+                aarch64) target="aarch64-unknown-linux-musl" ;;
+                *)       err "不支持的架构: $(uname -m)" ;;
+            esac
+            url="https://github.com/ajeetdsouza/zoxide/releases/download/v0.9.9/zoxide-${target}.tar.gz"
+            tmpdir=$(mktemp -d)
+            curl -fSL --max-time 60 --proxy "http://127.0.0.1:7897" -o "$tmpdir/zoxide.tar.gz" "$url" \
+                || err "zoxide 下载失败: $url"
+            tar -xzf "$tmpdir/zoxide.tar.gz" -C "$tmpdir"
+            mkdir -p "$HOME/.local/bin"
+            install -m 0755 "$tmpdir/zoxide" "$HOME/.local/bin/zoxide"
+            rm -rf "$tmpdir"
+            ;;
+    esac
+    command -v zoxide &>/dev/null || err "zoxide 安装失败"
+}
+
 # ── main ──
 echo ""
 echo "  ╔══════════════════════════════╗"
 echo "  ║   install-tools             ║"
-echo "  ║   nvim + yazi 一键安装      ║"
+echo "  ║   nvim + yazi + zoxide     ║"
 echo "  ╚══════════════════════════════╝"
 echo ""
 
 ensure_base
 install_nvim
 install_yazi
+install_zoxide
 
 echo ""
-echo "  ✅ nvim + yazi 安装完成"
+echo "  ✅ nvim + yazi + zoxide 安装完成"
 echo ""
