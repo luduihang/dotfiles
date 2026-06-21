@@ -339,10 +339,17 @@ apply_dotfiles() {
         chezmoi init --source="$SCRIPT_DIR"
         src_flag="--source=$SCRIPT_DIR"
     elif [ -d "$HOME/.local/share/chezmoi/.git" ]; then
-        chezmoi init
+        # 已有 chezmoi 源: 直接 apply
+        step "已有 chezmoi 源, 直接 apply"
     else
-        # oneliner / 全新: 从远端 clone 到默认路径
-        chezmoi init "$DOTFILES_REPO"
+        # oneliner / 全新: 先确保源目录在, 再从远端 clone
+        mkdir -p "$HOME/.local/share/chezmoi"
+        step "从 GitHub 克隆 dotfiles 源..."
+        if ! git clone "https://github.com/${DOTFILES_REPO}.git" "$HOME/.local/share/chezmoi" 2>/dev/null; then
+            # HTTPS 失败试 SSH
+            git clone "git@github.com:${DOTFILES_REPO}.git" "$HOME/.local/share/chezmoi" \
+                || error "克隆 dotfiles 失败, 请检查网络/SSH Key"
+        fi
     fi
 
     fix_git_branch
@@ -381,6 +388,7 @@ install_age
 install_chezmoi
 install_nvim
 install_yazi
+install_zoxide
 
 # 阶段 3: 配置密钥 + 部署 dotfiles
 setup_age_key
