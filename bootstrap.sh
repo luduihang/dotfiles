@@ -206,77 +206,13 @@ install_chezmoi() {
     command -v chezmoi &>/dev/null || error "chezmoi 安装失败"
 }
 
-# ---- 安装 nvim ----
-install_nvim() {
-    if command -v nvim &>/dev/null; then
-        step "nvim 已安装 ($(nvim --version 2>&1 | head -1))"
-        return
+# ---- 提示安装日常工具 (可选) ----
+# nvim / yazi / zoxide 不在此脚本安装，保持 chezmoi 职责单一
+# 需要时跑: ~/.local/bin/install-tools  或手动安装
+maybe_install_tools_note() {
+    if [ -x "$HOME/.local/bin/install-tools" ]; then
+        step "可运行 ~/.local/bin/install-tools 安装 nvim + yazi + zoxide"
     fi
-    step "安装 nvim..."
-    case "$OS" in
-        darwin) brew install nvim 2>/dev/null || error "brew install nvim 失败" ;;
-        linux)
-            if command -v apt-get &>/dev/null; then
-                sudo apt-get update -y && sudo apt-get install -y neovim
-            elif command -v dnf &>/dev/null; then
-                sudo dnf install -y neovim
-            elif command -v pacman &>/dev/null; then
-                sudo pacman -S --noconfirm neovim
-            else
-                warn "未检测到包管理器，跳 nvim 安装"
-                return
-            fi
-            ;;
-    esac
-    command -v nvim &>/dev/null || warn "nvim 安装失败，可手动安装"
-}
-
-# ---- 安装 yazi ----
-install_yazi() {
-    if command -v yazi &>/dev/null; then
-        step "yazi 已安装 ($(yazi --version 2>&1))"
-        return
-    fi
-    step "安装 yazi..."
-    case "$OS" in
-        darwin) brew install yazi 2>/dev/null || error "brew install yazi 失败" ;;
-        linux)
-            if command -v pacman &>/dev/null; then
-                sudo pacman -S --noconfirm yazi && return
-            fi
-            if command -v apt-get &>/dev/null; then
-                sudo apt-get update -y && sudo apt-get install -y yazi 2>/dev/null && return
-            fi
-            # 包管理器没有 → 下载 .deb 或预编译包
-            step "下载 yazi 预编译包..."
-            local target url tmpdir
-            case "$ARCH" in
-                amd64) target="x86_64-unknown-linux-gnu" ;;
-                arm64) target="aarch64-unknown-linux-gnu" ;;
-                *) error "不支持的架构: $ARCH" ;;
-            esac
-            url="https://github.com/sxyazi/yazi/releases/download/v26.5.6/yazi-${target}.zip"
-            # 优先用 .deb (如果有 dpkg)
-            if command -v dpkg &>/dev/null; then
-                local deb_url="https://github.com/sxyazi/yazi/releases/download/v26.5.6/yazi-${target}.deb"
-                tmpdir=$(mktemp -d)
-                curl -fSL --max-time 120 --proxy "http://127.0.0.1:7897" -o "$tmpdir/yazi.deb" "$deb_url" 2>/dev/null && {
-                    sudo dpkg -i "$tmpdir/yazi.deb" 2>/dev/null && { rm -rf "$tmpdir"; return; }
-                }
-                rm -rf "$tmpdir"
-            fi
-            # 回退: .zip 解压安装
-            command -v unzip &>/dev/null || sudo apt-get install -y unzip 2>/dev/null || true
-            tmpdir=$(mktemp -d)
-            curl -fSL --max-time 120 --proxy "http://127.0.0.1:7897" -o "$tmpdir/yazi.zip" "$url" || error "yazi 下载失败: $url"
-            unzip -qo "$tmpdir/yazi.zip" -d "$tmpdir"
-            mkdir -p "$HOME/.local/bin"
-            install -m 0755 "$tmpdir/yazi-${target}/yazi" "$HOME/.local/bin/yazi"
-            install -m 0755 "$tmpdir/yazi-${target}/ya" "$HOME/.local/bin/ya"
-            rm -rf "$tmpdir"
-            ;;
-    esac
-    command -v yazi &>/dev/null || error "yazi 安装失败"
 }
 
 # ---- 配置 age 密钥 ----
@@ -376,11 +312,9 @@ else
     export http_proxy="http://127.0.0.1:7897" https_proxy="http://127.0.0.1:7897" all_proxy="http://127.0.0.1:7897"
 fi
 
-# 阶段 2: 在线装 age、chezmoi 和日常工具
+# 阶段 2: 在线装 age + chezmoi
 install_age
 install_chezmoi
-install_nvim
-install_yazi
 
 # 阶段 3: 配置密钥 + 部署 dotfiles
 setup_age_key
@@ -389,7 +323,7 @@ apply_dotfiles
 echo ""
 echo "  ████████████████████████████████████████████"
 echo "  ▎  开荒完成！                              ▎"
-echo "  ▎  下次同步只需: csz                       ▎"
+echo "  ▎  安装工具:      install-tools                       ▎"
 echo "  ▎  切换模型:      cc-switch deepseek       ▎"
 echo "  ████████████████████████████████████████████"
 echo ""

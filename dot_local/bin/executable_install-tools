@@ -62,8 +62,8 @@ install_yazi() {
             step "下载 yazi 预编译包..."
             local target url tmpdir
             case "$(uname -m)" in
-                x86_64)  target="x86_64-unknown-linux-gnu" ;;
-                aarch64) target="aarch64-unknown-linux-gnu" ;;
+                x86_64)  target="x86_64-unknown-linux-musl" ;;
+                aarch64) target="aarch64-unknown-linux-musl" ;;
                 *)       err "不支持的架构: $(uname -m)" ;;
             esac
             url="https://github.com/sxyazi/yazi/releases/download/v26.5.6/yazi-${target}.zip"
