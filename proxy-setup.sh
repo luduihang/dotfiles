@@ -75,26 +75,23 @@ geox-url:
   geosite: "https://raw.githubusercontent.com/Loyalsoldier/v2ray-rules-dat/release/geosite.dat"
 
 proxies:
-  - name: "VLESS-Reality-Node"
+  - name: "VLESS-Vision-Direct"
     type: vless
-    server: 23.27.28.186
+    server: gatewaynode11.xyz
     port: 443
     uuid: baedd174-2b70-48af-aa30-7d6fe8032511
     network: tcp
     tls: true
     udp: true
     flow: xtls-rprx-vision
-    servername: www.microsoft.com
+    servername: gatewaynode11.xyz
     client-fingerprint: chrome
-    reality-opts:
-      public-key: GRoTjz_4e25fz72EIyIWqJIEup7aATVu97dlUlXy_gs
-      short-id: 66a45e219e83a06c
 
 proxy-groups:
   - name: "Proxy"
     type: select
     proxies:
-      - "VLESS-Reality-Node"
+      - "VLESS-Vision-Direct"
       - "DIRECT"
 
 rules:
