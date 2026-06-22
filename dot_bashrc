@@ -242,6 +242,14 @@ function y() {
 
 # zoxide 智能目录跳转（按 z <keyword> 直达常去目录）
 if command -v zoxide &>/dev/null; then
+	# 清理可能坏掉的 PROMPT_COMMAND (避免 ;; 语法错误)
+	if [[ "${PROMPT_COMMAND:-}" == *";;"* ]] || [[ "${PROMPT_COMMAND:-}" == *"; "* ]]; then
+		PROMPT_COMMAND="${PROMPT_COMMAND//;;/;}"
+		PROMPT_COMMAND="${PROMPT_COMMAND#;}"
+		PROMPT_COMMAND="${PROMPT_COMMAND%;}"
+		# 去重: history -a 只保留一份
+		PROMPT_COMMAND="${PROMPT_COMMAND//history -a; history -a/history -a}"
+	fi
 	eval "$(zoxide init bash)"
 fi
 
