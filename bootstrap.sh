@@ -279,54 +279,6 @@ install_yazi() {
     command -v yazi &>/dev/null || error "yazi 安装失败"
 }
 
-# ---- 安装 zoxide (智能目录跳转) ----
-install_zoxide() {
-    if command -v zoxide &>/dev/null; then
-        step "zoxide 已安装 ($(zoxide --version 2>&1))"
-        return
-    fi
-    step "安装 zoxide..."
-    case "$OS" in
-        darwin) brew install zoxide 2>/dev/null || error "brew install zoxide 失败" ;;
-        linux)
-            if command -v pacman &>/dev/null; then
-                sudo pacman -S --noconfirm zoxide && return
-            fi
-            if command -v apt-get &>/dev/null; then
-                sudo apt-get update -y && sudo apt-get install -y zoxide 2>/dev/null && return
-            fi
-            if command -v dnf &>/dev/null; then
-                sudo dnf install -y zoxide 2>/dev/null && return
-            fi
-            # 包管理器都没有 (或装失败) → 从 GitHub release 下载预编译二进制
-            warn "包管理器未安装 zoxide, 改从 GitHub release 下载"
-            local target url tmpdir
-            case "$ARCH" in
-                amd64) target="x86_64-unknown-linux-musl" ;;
-                arm64) target="aarch64-unknown-linux-musl" ;;
-                *) error "不支持的架构: $ARCH" ;;
-            esac
-            url="https://github.com/ajeetdsouza/zoxide/releases/download/v0.9.9/zoxide-0.9.9-${target}.tar.gz"
-            tmpdir=$(mktemp -d)
-            curl -fSL --max-time 60 --proxy "http://127.0.0.1:7897" -o "$tmpdir/zoxide.tar.gz" "$url" \
-                || error "zoxide 下载失败: $url"
-            tar -xzf "$tmpdir/zoxide.tar.gz" -C "$tmpdir"
-            mkdir -p "$HOME/.local/bin"
-            install -m 0755 "$tmpdir/zoxide" "$HOME/.local/bin/zoxide" || error "zoxide 拷贝失败"
-            # 确保 ~/.local/bin 在 PATH (脚本临时会话里加一下)
-            export PATH="$HOME/.local/bin:$PATH"
-            step "zoxide 已安装到 $HOME/.local/bin/zoxide (PATH 已更新)"
-            rm -rf "$tmpdir"
-            ;;
-    esac
-    command -v zoxide &>/dev/null || {
-        # 调试: 看 zoxide 二进制到底在哪
-        ls -la "$HOME/.local/bin/zoxide" 2>&1
-        echo "PATH=$PATH"
-        error "zoxide 安装失败 (PATH 不含 ~/.local/bin?)"
-    }
-}
-
 # ---- 配置 age 密钥 ----
 setup_age_key() {
     mkdir -p ~/.config/age
@@ -387,17 +339,10 @@ apply_dotfiles() {
         chezmoi init --source="$SCRIPT_DIR"
         src_flag="--source=$SCRIPT_DIR"
     elif [ -d "$HOME/.local/share/chezmoi/.git" ]; then
-        # 已有 chezmoi 源: 直接 apply
-        step "已有 chezmoi 源, 直接 apply"
+        chezmoi init
     else
-        # oneliner / 全新: 先确保源目录在, 再从远端 clone
-        mkdir -p "$HOME/.local/share/chezmoi"
-        step "从 GitHub 克隆 dotfiles 源..."
-        if ! git clone "https://github.com/${DOTFILES_REPO}.git" "$HOME/.local/share/chezmoi" 2>/dev/null; then
-            # HTTPS 失败试 SSH
-            git clone "git@github.com:${DOTFILES_REPO}.git" "$HOME/.local/share/chezmoi" \
-                || error "克隆 dotfiles 失败, 请检查网络/SSH Key"
-        fi
+        # oneliner / 全新: 从远端 clone 到默认路径
+        chezmoi init "$DOTFILES_REPO"
     fi
 
     fix_git_branch
@@ -436,7 +381,6 @@ install_age
 install_chezmoi
 install_nvim
 install_yazi
-install_zoxide
 
 # 阶段 3: 配置密钥 + 部署 dotfiles
 setup_age_key

@@ -101,15 +101,7 @@ Host ipraft-server
     PreferredAuthentications publickey
     IdentityFile ~/.ssh/id_ed25519
 
-Host bestvm-server
-    HostName 147.79.59.147
-    User root
-    # 绕过 MTU 黑洞的终极武器
-    KexAlgorithms curve25519-sha256@libssh.org
-    IPQoS none
-    Port 22
-
-Host ldh 
-  HostName 0.0.0.0
+Host evoxt-server 
+  HostName 23.27.28.186
   User root
   Port 22
