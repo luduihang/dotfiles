@@ -68,12 +68,6 @@ allow-lan: true
 mode: rule
 log-level: info
 
-# 关闭自动下载, 避免新机器无代理死锁
-geodata-mode: false
-geox-url:
-  geoip: "https://raw.githubusercontent.com/Loyalsoldier/v2ray-rules-dat/release/geoip.dat"
-  geosite: "https://raw.githubusercontent.com/Loyalsoldier/v2ray-rules-dat/release/geosite.dat"
-
 proxies:
   - name: "VLESS-Vision-Direct"
     type: vless
@@ -96,7 +90,6 @@ proxy-groups:
 
 rules:
   - DOMAIN,easytake.work,DIRECT
-  - GEOIP,CN,DIRECT
   - DOMAIN-SUFFIX,baidu.com,DIRECT
   - DOMAIN-SUFFIX,bilibili.com,DIRECT
   - DOMAIN-SUFFIX,qq.com,DIRECT
@@ -106,45 +99,6 @@ rules:
 YAML
     chmod 600 "$CONFIG_FILE"
     step "配置写入完成"
-}
-
-# ── 预下载 geoip.dat / geosite.dat ──
-# 关键修复: mihomo 启动时会自动下载这些数据库, 但新机器没代理会卡死
-# 解决方案: 启动前手动放好, 同时关掉 mihomo 的自动下载 (geodata-mode: false)
-download_geodata() {
-    step "下载 geoip.dat / geosite.dat (避免 mihomo 启动时卡住)..."
-    mkdir -p "$CONFIG_DIR"
-
-    # 优先从 Loyalsoldier GitHub raw 下载, 国内走 ghproxy 加速
-    local geoip_url="https://raw.githubusercontent.com/Loyalsoldier/v2ray-rules-dat/release/geoip.dat"
-    local geosite_url="https://raw.githubusercontent.com/Loyalsoldier/v2ray-rules-dat/release/geosite.dat"
-    local gh_mirror="https://gh-proxy.com/"  # 国内可访问的 GitHub 代理
-
-    # geoip.dat
-    if [ ! -f "$CONFIG_DIR/geoip.dat" ] || [ ! -s "$CONFIG_DIR/geoip.dat" ]; then
-        if curl -fSL --max-time 30 -o "$CONFIG_DIR/geoip.dat" "$geoip_url" 2>/dev/null; then
-            step "geoip.dat 下载成功"
-        elif curl -fSL --max-time 30 -o "$CONFIG_DIR/geoip.dat" "${gh_mirror}${geoip_url}" 2>/dev/null; then
-            step "geoip.dat 走 ghproxy 下载成功"
-        else
-            warn "geoip.dat 下载失败, mihomo 启动时会自动重试 (会卡住)"
-        fi
-    else
-        step "geoip.dat 已存在"
-    fi
-
-    # geosite.dat
-    if [ ! -f "$CONFIG_DIR/geosite.dat" ] || [ ! -s "$CONFIG_DIR/geosite.dat" ]; then
-        if curl -fSL --max-time 30 -o "$CONFIG_DIR/geosite.dat" "$geosite_url" 2>/dev/null; then
-            step "geosite.dat 下载成功"
-        elif curl -fSL --max-time 30 -o "$CONFIG_DIR/geosite.dat" "${gh_mirror}${geosite_url}" 2>/dev/null; then
-            step "geosite.dat 走 ghproxy 下载成功"
-        else
-            warn "geosite.dat 下载失败, mihomo 启动时会自动重试 (会卡住)"
-        fi
-    else
-        step "geosite.dat 已存在"
-    fi
 }
 
 # ── 检测桌面环境 ──
@@ -216,7 +170,6 @@ echo ""
 
 install_mihomo
 write_config
-download_geodata
 
 if has_desktop; then
     warn "检测到桌面环境, 跳过 mihomo 内核启动"

@@ -3,12 +3,6 @@ allow-lan: true
 mode: rule
 log-level: info
 
-# 关闭自动下载, 避免新机器无代理死锁
-geodata-mode: false
-geox-url:
-  geoip: "https://raw.githubusercontent.com/Loyalsoldier/v2ray-rules-dat/release/geoip.dat"
-  geosite: "https://raw.githubusercontent.com/Loyalsoldier/v2ray-rules-dat/release/geosite.dat"
-
 proxies:
   - name: "VLESS-Vision-Direct"
     type: vless
@@ -31,7 +25,6 @@ proxy-groups:
 
 rules:
   - DOMAIN,easytake.work,DIRECT
-  - GEOIP,CN,DIRECT
   - DOMAIN-SUFFIX,baidu.com,DIRECT
   - DOMAIN-SUFFIX,bilibili.com,DIRECT
   - DOMAIN-SUFFIX,qq.com,DIRECT
