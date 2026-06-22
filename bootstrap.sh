@@ -207,11 +207,11 @@ install_chezmoi() {
 }
 
 # ---- 提示安装日常工具 (可选) ----
-# nvim / yazi / zoxide 不在此脚本安装，保持 chezmoi 职责单一
+# nvim / yazi 不在此脚本安装，保持 chezmoi 职责单一
 # 需要时跑: ~/.local/bin/install-tools  或手动安装
 maybe_install_tools_note() {
     if [ -x "$HOME/.local/bin/install-tools" ]; then
-        step "可运行 ~/.local/bin/install-tools 安装 nvim + yazi + zoxide"
+        step "可运行 ~/.local/bin/install-tools 安装 nvim + yazi"
     fi
 }
 

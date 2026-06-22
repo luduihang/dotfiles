@@ -240,23 +240,6 @@ function y() {
 	rm -f -- "$tmp"
 }
 
-# zoxide 智能目录跳转（按 z <keyword> 直达常去目录）
-if command -v zoxide &>/dev/null; then
-	# 清理可能坏掉的 PROMPT_COMMAND (避免 ;; 语法错误)
-	# 系统级 bashrc 可能设了尾部分号 (如 "history -a;")，
-	# zoxide 追加后变成 "history -a;;__zoxide_hook"
-	if [[ -n "${PROMPT_COMMAND:-}" ]]; then
-		# 1. 压缩多分号为单分号
-		while [[ "${PROMPT_COMMAND}" == *";;"* ]]; do
-			PROMPT_COMMAND="${PROMPT_COMMAND//;;/;}"
-		done
-		# 2. 去掉尾部分号 (zoxide 会自己加)
-		PROMPT_COMMAND="${PROMPT_COMMAND%;}"
-		# 3. 去掉头部分号
-		PROMPT_COMMAND="${PROMPT_COMMAND#;}"
-	fi
-	eval "$(zoxide init bash)"
-fi
 
 # chezmoi 三段式同步函数 (语义严格对应 git push/pull/apply)
 #
