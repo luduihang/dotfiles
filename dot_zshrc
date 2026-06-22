@@ -149,6 +149,31 @@ czapply() {
     echo "✅ [czapply] 部署完成! 部分变更需要重启 shell 才生效 (exec \$SHELL)"
 }
 
+# GitHub SSH 密钥一键配置 (每台机器生成自己的 key, 不会互相覆盖)
+gh-key-setup() {
+    local keyfile="$HOME/.ssh/id_ed25519"
+    if [ -f "$keyfile" ]; then
+        echo "🔑 SSH 密钥已存在: $keyfile"
+        echo "   公钥: $(cat ${keyfile}.pub 2>/dev/null | cut -d' ' -f1-2)..."
+        ssh -T git@github.com 2>&1 | grep -q "successfully authenticated" && {
+            echo "✅ GitHub 认证正常, 无需重新配置"
+            return 0
+        }
+        echo "⚠  GitHub 认证失败, 可能需要重新注册公钥"
+    fi
+    echo ""
+    echo "=== 生成 SSH 密钥对 ==="
+    ssh-keygen -t ed25519 -C "$(whoami)@$(hostname)" -f "$keyfile" -N ""
+    echo ""
+    echo "=== 请将以下公钥添加到 GitHub ==="
+    echo "   打开: https://github.com/settings/keys"
+    echo "   New SSH Key → 粘贴以下内容:"
+    echo ""
+    cat "${keyfile}.pub"
+    echo ""
+    echo "添加后测试: ssh -T git@github.com"
+}
+
 # 绑定极客快捷别名
 
 

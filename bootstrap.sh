@@ -320,10 +320,36 @@ install_chezmoi
 setup_age_key
 apply_dotfiles
 
+# ── 检测 SSH 密钥 (不存 chezmoi, 每台机器自己管) ──
+check_ssh_key() {
+    local keyfile="$HOME/.ssh/id_ed25519"
+    if [ -f "$keyfile" ]; then
+        step "SSH 密钥已存在 ($keyfile)"
+        return
+    fi
+    warn "检测到新机器 — 未找到 SSH 密钥"
+    echo ""
+    echo "  ▎每台机器使用独立的 SSH 密钥 (互不覆盖)"
+    echo "  ▎现在生成密钥并对接 GitHub..."
+    echo ""
+    ssh-keygen -t ed25519 -C "$(whoami)@$(hostname)" -f "$keyfile" -N ""
+    echo ""
+    echo "  ╔══════════════════════════════════════════╗"
+    echo "  ║  请将以下公钥添加到 GitHub:             ║"
+    echo "  ║  https://github.com/settings/keys        ║"
+    echo "  ╠══════════════════════════════════════════╣"
+    cat "${keyfile}.pub"
+    echo ""
+    echo "  ║  添加后运行: ssh -T git@github.com        ║"
+    echo "  ╚══════════════════════════════════════════╝"
+    echo ""
+}
+check_ssh_key
+
 echo ""
 echo "  ████████████████████████████████████████████"
 echo "  ▎  开荒完成！                              ▎"
-echo "  ▎  安装工具:      install-tools                       ▎"
-echo "  ▎  切换模型:      cc-switch deepseek       ▎"
+echo "  ▎  安装工具:      install-tools            ▎"
+echo "  ▎  配置密钥:      gh-key-setup             ▎"
 echo "  ████████████████████████████████████████████"
 echo ""
