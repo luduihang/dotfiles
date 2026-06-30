@@ -1,3 +1,53 @@
 {
-  "theme": "dark"
+  "env": {
+    "ANTHROPIC_AUTH_TOKEN": "sk-0a7607d6137f4e0c8c10fc651dd71425",
+    "ANTHROPIC_BASE_URL": "https://api.deepseek.com/anthropic",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "deepseek-v4-flash",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL": "deepseek-v4-pro",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL": "deepseek-v4-pro",
+    "ANTHROPIC_MODEL": "deepseek-v4-pro",
+    "API_TIMEOUT_MS": "3000000",
+    "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1"
+  },
+  "permissions": {
+    "allow": [
+      "Bash(curl:*)",
+      "Bash(git:*)",
+      "Bash(ssh:*)",
+      "Bash(apt:*)",
+      "Bash(npm:*)",
+      "Bash(npx:*)",
+      "Bash(python:*)",
+      "Bash(python3:*)",
+      "Bash(pip:*)",
+      "Bash(node:*)",
+      "Bash(ls:*)",
+      "Bash(cat:*)",
+      "Bash(find:*)",
+      "Bash(grep:*)",
+      "Bash(which:*)",
+      "Bash(echo:*)",
+      "Bash(mkdir:*)",
+      "Bash(chmod:*)",
+      "Bash(rm:*)",
+      "Bash(cp:*)",
+      "Bash(mv:*)",
+      "Bash(wc:*)",
+      "Bash(sort:*)",
+      "Bash(head:*)",
+      "Bash(tail:*)",
+      "Bash(source:*)",
+      "Bash(export:*)",
+      "Bash(unset:*)",
+      "Bash(date:*)",
+      "Bash(printf:*)"
+    ],
+    "defaultMode": "plan"
+  },
+  "model": "opus",
+  "hooks": {},
+  "alwaysThinkingEnabled": false,
+  "_comment": "Claude Code 共享设置 — 跨设备同步。env 块由 cc-switch 动态管理。",
+  "_note": "MCP 密钥使用 ${SECRETS:<path>:<var>} 占位符，由 install.sh 从 ~/.claude/secrets/ 解析",
+  "mcpServers": {}
 }

@@ -62,17 +62,6 @@ detect_script_dir() {
 }
 SCRIPT_DIR="${SCRIPT_DIR:-$(detect_script_dir)}"
 
-# ---- 确保基础工具 (精简系统可能缺 curl/unzip/sudo) ----
-ensure_base() {
-    # 只 Linux 需要补这些
-    [ "$OS" = "darwin" ] && return
-    for tool in curl unzip sudo; do
-        command -v "$tool" &>/dev/null && continue
-        apt-get update -y 2>/dev/null
-        apt-get install -y "$tool" 2>/dev/null || true
-    done
-}
-
 # ---- mihomo 路径 ----
 MIHOMO_DIR="$HOME/.local/bin"
 MIHOMO_BIN="$MIHOMO_DIR/mihomo"
@@ -122,29 +111,25 @@ copy_mihomo_config() {
 
 # ---- 检测桌面环境 ----
 has_desktop() {
-    [ -f /.dockerenv ] && return 1   # 容器不算桌面
     [ -n "${DISPLAY:-}" ] || [ -n "${WAYLAND_DISPLAY:-}" ]
 }
 
 # ---- 启动 mihomo ----
 start_mihomo() {
-    # 直接 curl 测端口，不依赖 ss/netstat/lsof（精简 Docker 镜像都没有）
-    if curl -s --max-time 1 -o /dev/null --proxy "http://127.0.0.1:7897" "http://127.0.0.1:7897" 2>/dev/null; then
-        step "mihomo 已在运行 (端口 7897 可连通)"
+    if [ -f "$MIHOMO_PID_FILE" ] && kill -0 "$(cat "$MIHOMO_PID_FILE")" 2>/dev/null; then
+        step "mihomo 已在运行 (PID: $(cat "$MIHOMO_PID_FILE"))"
         return 0
     fi
 
-    # 端口不通，清理残留后重启
     pkill -f "mihomo" 2>/dev/null || true
     sleep 0.5
 
     step "启动 mihomo (mixed-port: 7897)..."
-    mkdir -p "$(dirname "$MIHOMO_LOG_FILE")"
     nohup "$MIHOMO_BIN" -f "$MIHOMO_CONFIG_DST" > "$MIHOMO_LOG_FILE" 2>&1 &
     local pid=$!
     echo "$pid" > "$MIHOMO_PID_FILE"
 
-    sleep 2
+    sleep 1
     if kill -0 "$pid" 2>/dev/null; then
         step "mihomo 启动成功 (PID: $pid)"
     else
@@ -154,18 +139,14 @@ start_mihomo() {
 
 # ---- 检查代理连通性 ----
 check_proxy() {
-    step "检测代理连通性 (VLess 握手约需 5-10 秒)..."
+    step "检测代理连通性..."
     local http_code
-    for i in 1 2 3; do
-        http_code=$(curl -s --max-time 5 -o /dev/null -w "%{http_code}" --proxy "http://127.0.0.1:7897" "http://www.google.com" 2>/dev/null)
-        http_code="${http_code:-000}"
-        if [ "$http_code" = "200" ] || [ "$http_code" = "301" ] || [ "$http_code" = "302" ]; then
-            step "代理连通正常 (HTTP $http_code, 第 ${i} 次尝试)"
-            return
-        fi
-        [ "$i" -lt 3 ] && sleep 3
-    done
-    warn "代理暂不可达 (HTTP $http_code)，继续尝试在线安装..."
+    http_code=$(curl -s --max-time 5 -o /dev/null -w "%{http_code}" --proxy "http://127.0.0.1:7897" "http://www.google.com" 2>/dev/null || echo "000")
+    if [ "$http_code" = "200" ] || [ "$http_code" = "301" ] || [ "$http_code" = "302" ]; then
+        step "代理连通正常 (HTTP $http_code)"
+    else
+        warn "代理暂不可达 (HTTP $http_code)，继续尝试在线安装..."
+    fi
 }
 
 # ---- 安装 age ----
@@ -206,13 +187,29 @@ install_chezmoi() {
     command -v chezmoi &>/dev/null || error "chezmoi 安装失败"
 }
 
-# ---- 提示安装日常工具 (可选) ----
-# nvim / yazi 不在此脚本安装，保持 chezmoi 职责单一
-# 需要时跑: ~/.local/bin/install-tools  或手动安装
-maybe_install_tools_note() {
-    if [ -x "$HOME/.local/bin/install-tools" ]; then
-        step "可运行 ~/.local/bin/install-tools 安装 nvim + yazi"
+# ---- 安装 nvim ----
+install_nvim() {
+    if command -v nvim &>/dev/null; then
+        step "nvim 已安装 ($(nvim --version 2>&1 | head -1))"
+        return
     fi
+    step "安装 nvim..."
+    case "$OS" in
+        darwin) brew install nvim 2>/dev/null || error "brew install nvim 失败" ;;
+        linux)
+            if command -v apt-get &>/dev/null; then
+                sudo apt-get update -y && sudo apt-get install -y neovim
+            elif command -v dnf &>/dev/null; then
+                sudo dnf install -y neovim
+            elif command -v pacman &>/dev/null; then
+                sudo pacman -S --noconfirm neovim
+            else
+                warn "未检测到包管理器，跳 nvim 安装"
+                return
+            fi
+            ;;
+    esac
+    command -v nvim &>/dev/null || warn "nvim 安装失败，可手动安装"
 }
 
 # ---- 配置 age 密钥 ----
@@ -289,8 +286,6 @@ apply_dotfiles() {
 }
 
 # ---- 入口 ----
-ensure_base
-
 echo ""
 echo "  ╔══════════════════════════════════════════╗"
 echo "  ║       Dotfiles 开荒引导脚本              ║"
@@ -308,48 +303,21 @@ if has_desktop; then
 else
     start_mihomo
     check_proxy
-    # 代理通了，设全局环境变量，后续 curl/wget 自动走代理
-    export http_proxy="http://127.0.0.1:7897" https_proxy="http://127.0.0.1:7897" all_proxy="http://127.0.0.1:7897"
 fi
 
-# 阶段 2: 在线装 age + chezmoi
+# 阶段 2: 在线装 age、chezmoi 和日常工具
 install_age
 install_chezmoi
+install_nvim
 
 # 阶段 3: 配置密钥 + 部署 dotfiles
 setup_age_key
 apply_dotfiles
 
-# ── 检测 SSH 密钥 (不存 chezmoi, 每台机器自己管) ──
-check_ssh_key() {
-    local keyfile="$HOME/.ssh/id_ed25519"
-    if [ -f "$keyfile" ]; then
-        step "SSH 密钥已存在 ($keyfile)"
-        return
-    fi
-    warn "检测到新机器 — 未找到 SSH 密钥"
-    echo ""
-    echo "  ▎每台机器使用独立的 SSH 密钥 (互不覆盖)"
-    echo "  ▎现在生成密钥并对接 GitHub..."
-    echo ""
-    ssh-keygen -t ed25519 -C "$(whoami)@$(hostname)" -f "$keyfile" -N ""
-    echo ""
-    echo "  ╔══════════════════════════════════════════╗"
-    echo "  ║  请将以下公钥添加到 GitHub:             ║"
-    echo "  ║  https://github.com/settings/keys        ║"
-    echo "  ╠══════════════════════════════════════════╣"
-    cat "${keyfile}.pub"
-    echo ""
-    echo "  ║  添加后运行: ssh -T git@github.com        ║"
-    echo "  ╚══════════════════════════════════════════╝"
-    echo ""
-}
-check_ssh_key
-
 echo ""
 echo "  ████████████████████████████████████████████"
 echo "  ▎  开荒完成！                              ▎"
-echo "  ▎  安装工具:      install-tools            ▎"
-echo "  ▎  配置密钥:      gh-key-setup             ▎"
+echo "  ▎  下次同步只需: csz                       ▎"
+echo "  ▎  切换模型:      cc-switch deepseek       ▎"
 echo "  ████████████████████████████████████████████"
 echo ""

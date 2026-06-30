@@ -1,75 +1,28 @@
-# yazi 调优 — Miller Columns 视觉 + Openers + zoxide 集成
+# yazi 极简配置 — 只覆盖与默认值不同的部分
+# yazi 内置默认值会自动填充未定义项，不需要放全量配置
 
 [manager]
-# 三列比例: 1:4:3 — 当前操作目录绝对主导，左右跳跃不再眩晕
-ratio          = [ 1, 4, 3 ]
-sort_by        = "natural"
+# 用 nvim 作为编辑器（先找 nvim，回退到 vim/vi）
+editor = "nvim"
+
+# 排序: 先目录后文件、按名字
+sort_by     = "alphabetical"
 sort_dir_first = true
-show_hidden    = true
-# 极客最爱: 看文件大小（单文件大小，多文件选中数量）
-linemode       = "size"
+
+# 显示隐藏文件
+show_hidden = true
 
 [opener]
-# block=true → nvim 退出后切回 yazi; orphan=true → 视频后台播放不阻塞 yazi
+# 编辑文本 ⇒ nvim
 edit = [
-    { run = 'nvim "$@"', block = true, for = "unix", desc = "Neovim" },
-]
-play = [
-    { run = 'mpv "$@"', orphan = true, for = "unix", desc = "MPV" },
-]
-
-[open]
-rules = [
-    # 文本/代码默认 nvim（url 字段支持 glob, 是 yazi 推荐的扩展名匹配方式）
-    { url = "*.txt",      use = "edit" },
-    { url = "*.md",       use = "edit" },
-    { url = "*.markdown", use = "edit" },
-    { url = "*.json",     use = "edit" },
-    { url = "*.yaml",     use = "edit" },
-    { url = "*.yml",      use = "edit" },
-    { url = "*.toml",     use = "edit" },
-    { url = "*.ini",      use = "edit" },
-    { url = "*.conf",     use = "edit" },
-    { url = "*.py",       use = "edit" },
-    { url = "*.rs",       use = "edit" },
-    { url = "*.cpp",      use = "edit" },
-    { url = "*.c",        use = "edit" },
-    { url = "*.h",        use = "edit" },
-    { url = "*.hpp",      use = "edit" },
-    { url = "*.go",       use = "edit" },
-    { url = "*.js",       use = "edit" },
-    { url = "*.ts",       use = "edit" },
-    { url = "*.jsx",      use = "edit" },
-    { url = "*.tsx",      use = "edit" },
-    { url = "*.html",     use = "edit" },
-    { url = "*.css",      use = "edit" },
-    { url = "*.scss",     use = "edit" },
-    { url = "*.vim",      use = "edit" },
-    { url = "*.lua",      use = "edit" },
-    { url = "*.sh",       use = "edit" },
-    { url = "*.zsh",      use = "edit" },
-    { url = "*.bash",     use = "edit" },
-    { url = "*.fish",     use = "edit" },
-    { url = "*.xml",      use = "edit" },
-    { url = "*.sql",      use = "edit" },
-    { url = "*.env",      use = "edit" },
-    { url = "*Dockerfile*", use = "edit" },
-    { url = "*Makefile*",  use = "edit" },
-    # 视频/音频丢给后台 mpv（没装 mpv 时 fallback 到 default）
-    { mime = "video/*", use = "play" },
-    { mime = "audio/*", use = "play" },
-    # 兜底: 系统默认应用
-    { url = "*", use = "default" },
+    { run = 'nvim "$@"', block = true, for = "unix" },
 ]
 
 [preview]
-# 代码预览 tab 宽度
-tab_size       = 4
-# 图片预览最大尺寸（kitty 协议下）
-max_width      = 1920
-max_height     = 1080
-image_filter   = "kitty"
-image_quality  = 75
+# 预览区最大尺寸
+max_width  = 800
+max_height = 600
 
-# zoxide 集成 — yazi 里按 z 即可瞬移到常去目录
-# 不需要额外配置，yazi 检测到 zoxide 二进制即可
+# 图片预览 (kitty/ueberzug 协议，终端支持就生效)
+image_filter  = "kitty"
+image_quality = 75
